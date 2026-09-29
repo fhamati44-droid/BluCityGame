@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { BluRig, toon } from './BluRig';
+import { completeLevel, LEVELS, parseLevelProgress, SAVE_KEY, type LevelId } from '../../lib/levels';
 
 type Lang = 'en' | 'he' | 'ar';
 type Props = { lang: Lang; onMenu: () => void; onReward: () => void; serverRestored: boolean };
@@ -11,18 +12,22 @@ const copy = {
   he: { zone: 'Central Grid', collect: 'מצא 3 תאי אנרגיה', generator: 'רוץ לגנרטור הראשי', charge: 'החזק טעינה כדי להחזיר חשמל', done: 'החשמל חזר!', next: 'מגדל האנרגיה הבא בתור', metro: 'מרוץ המטרו', metroCollect: 'מצא 2 ליבות איתות', metroStation: 'רוץ לתחנת המטרו', metroCharge: 'החזק טעינה להפעלת המטרו', metroDone: 'המטרו נוסע!', menu: 'תפריט', jump: 'קפיצה', dash: 'דאש', interact: 'טעינה', start: 'ג׳ויסטיק לתנועה · החלק למעלה לקפיצה', unsupported: 'המכשיר הזה לא יכול להציג את העיר בתלת־ממד', resume: 'פתח את מפת העיר', rail: 'גלישה על המסילה!', secret: 'דרך סודית!', pause: 'הפסקה', continue: 'ממשיכים לשחק', overcharge: 'טעינת יתר!', tap: 'לחץ כדי לשחק', score: 'ניקוד', city: 'עיר', flip: 'סלטה!', cell: 'תא אנרגיה!', core: 'ליבת איתות!' },
   ar: { zone: 'Central Grid', collect: 'اجمع 3 خلايا طاقة', generator: 'اركض للمولّد الرئيسي', charge: 'اضغط مطولًا لترجع الكهربا', done: 'رجعت الكهربا!', next: 'برج الطاقة هو الجاي', metro: 'سباق المترو', metroCollect: 'اجمع نواتين للإشارة', metroStation: 'اركض لمحطة المترو', metroCharge: 'اضغط مطولًا لتشغيل المترو', metroDone: 'المترو ماشي!', menu: 'القائمة', jump: 'اقفز', dash: 'اندفاع', interact: 'شحن', start: 'العصا للحركة · اسحب لفوق للقفز', unsupported: 'هالجهاز ما بقدر يعرض المدينة 3D', resume: 'افتح خريطة المدينة', rail: 'تزحلق على السكة!', secret: 'طريق سري!', pause: 'توقف', continue: 'كمّل لعب', overcharge: 'طاقة خارقة!', tap: 'اضغط لتلعب', score: 'النقاط', city: 'مدينة', flip: 'شقلبة!', cell: 'خلية طاقة!', core: 'نواة إشارة!' },
 };
-type Status = { cells: number; metroCells: number; energy: number; meters: number; direction: number; restored: boolean; metroDone: boolean; celebrating: boolean; nearby: boolean; overcharge: boolean; rail: boolean; secret: boolean; charge: number; dashing: boolean; score: number; bolts: number; tutorial: boolean };
-const checkpointKey = 'blu_central_grid_v1';
+type Status = { cells: number; metroCells: number; energy: number; meters: number; direction: number; restored: boolean; metroDone: boolean; level: LevelId; coins: number; celebrating: boolean; nearby: boolean; overcharge: boolean; rail: boolean; secret: boolean; charge: number; dashing: boolean; score: number; bolts: number; tutorial: boolean };
 const PALETTE = [0xff7b8e, 0x4fd6c8, 0xffc94d, 0x8b8cff, 0xff9f5a, 0x6fd3ff, 0xc98bff];
 
 export default function PlayableCity({ lang, onMenu, onReward, serverRestored }: Props) {
   const host = useRef<HTMLDivElement>(null); const fx = useRef<HTMLDivElement>(null); const knob = useRef<HTMLSpanElement>(null); const boltChip = useRef<HTMLDivElement>(null);
-  const input = useRef({ x: 0, y: 0, jump: false, dash: false, slide: false, charge: false, start: false });
+  const input = useRef({ x: 0, y: 0, jump: false, dash: false, slide: false, charge: false, start: false, next: false });
   const callbacks = useRef({ onReward }); callbacks.current.onReward = onReward;
   const [unsupported, setUnsupported] = useState(false); const [paused, setPaused] = useState(false); const pausedRef = useRef(false); pausedRef.current = paused;
   const [started, setStarted] = useState(false); const startedRef = useRef(false);
-  const [status, setStatus] = useState<Status>({ cells: 0, metroCells: 0, energy: 0, meters: 0, direction: 0, restored: false, metroDone: false, celebrating: false, nearby: false, overcharge: false, rail: false, secret: false, charge: 0, dashing: false, score: 0, bolts: 0, tutorial: true });
+  const [status, setStatus] = useState<Status>({ cells: 0, metroCells: 0, energy: 0, meters: 0, direction: 0, restored: false, metroDone: false, level: 1, coins: 0, celebrating: false, nearby: false, overcharge: false, rail: false, secret: false, charge: 0, dashing: false, score: 0, bolts: 0, tutorial: true });
   const t = copy[lang]; const tRef = useRef(t); tRef.current = t;
+  const ui = {
+    en: { level: 'LEVEL', coins: 'COINS', reward: 'LEVEL COMPLETE · +', next: 'Continue to Level 2', finish: 'Chapter complete', locked: 'Complete Level 1 to unlock', local: 'Progress saved on this device' },
+    he: { level: 'שלב', coins: 'מטבעות', reward: 'השלב הושלם · +', next: 'המשך לשלב 2', finish: 'הפרק הושלם', locked: 'יש להשלים את שלב 1', local: 'ההתקדמות נשמרת במכשיר הזה' },
+    ar: { level: 'المرحلة', coins: 'العملات', reward: 'اكتملت المرحلة · +', next: 'تابع إلى المرحلة 2', finish: 'اكتمل الفصل', locked: 'أكمل المرحلة 1 أولاً', local: 'يُحفظ التقدم على هذا الجهاز' },
+  }[lang];
   const begin = () => { if (startedRef.current) return; startedRef.current = true; setStarted(true); };
 
   useEffect(() => {
@@ -120,11 +125,17 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored }:
     const trail = [0, 1, 2, 3, 4].map(() => { const o = new THREE.Mesh(sphGeo, B(0x6ff7ff)); o.scale.setScalar(.12); scene.add(o); return o; });
 
     // Checkpoint
-    let saved: { cells?: boolean[]; restored?: boolean; metro?: boolean[]; metroDone?: boolean } = {}; try { saved = JSON.parse(localStorage.getItem(checkpointKey) || '{}'); } catch { /* corrupted save starts fresh */ }
-    const found = Array.isArray(saved.cells) && saved.cells.length === 3 ? saved.cells : [false, false, false]; let restored = Boolean(saved.restored || serverRestored);
-    const metroFound = Array.isArray(saved.metro) && saved.metro.length === 2 ? saved.metro : [false, false]; let metroDone = Boolean(saved.metroDone);
-    const save = () => { try { localStorage.setItem(checkpointKey, JSON.stringify({ cells: found, restored, metro: metroFound, metroDone })); } catch { /* storage may be unavailable */ } };
-    cells.forEach((c, i) => { c.visible = !found[i]; }); metroCores.forEach((c, i) => { c.visible = restored && !metroFound[i]; });
+    let raw: string | null = null; try { raw = localStorage.getItem(SAVE_KEY); } catch { /* storage may be unavailable */ }
+    let progress = parseLevelProgress(raw);
+    const found = progress.cells; let restored = progress.restored || serverRestored;
+    const metroFound = progress.metro; let metroDone = progress.metroDone;
+    let activeLevel: LevelId = restored ? 2 : 1;
+    // Complete older saves without granting a new reward for a mission finished before coins existed.
+    if (restored && !progress.claimed.includes(1)) progress = { ...progress, restored: true, claimed: [...progress.claimed, 1] };
+    if (metroDone && !progress.claimed.includes(2)) progress = { ...progress, claimed: [...progress.claimed, 2] };
+    const save = () => { try { localStorage.setItem(SAVE_KEY, JSON.stringify({ ...progress, cells: found, restored, metro: metroFound, metroDone })); } catch { /* storage may be unavailable */ } };
+    const award = (id: LevelId) => { progress = completeLevel({ ...progress, restored, metroDone }, id); save(); };
+    cells.forEach((c, i) => { c.visible = !found[i]; }); metroCores.forEach((c, i) => { c.visible = activeLevel === 2 && !metroFound[i]; });
     const litMats = { lamp: B(0xfff3b0), sign: T(0xff4fa3, 0xff4fa3, 1), core: B(0x6ff7ff), station: T(0x6ff7ff, 0x6ff7ff, .9) };
     let litWindows = 0; const lightWindow = (i: number) => { windowsMesh.setColorAt(i, litColor); };
     const applyLights = (instant: boolean) => { genCore.material = litMats.core; towerTop.material = litMats.core; if (instant) { for (let i = 0; i < wi; i++) lightWindow(i); litWindows = wi; if (windowsMesh.instanceColor) windowsMesh.instanceColor.needsUpdate = true; lamps.forEach(l => { l.material = litMats.lamp; }); signs.forEach(s => { s.material = litMats.sign; }); } };
@@ -143,14 +154,15 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored }:
 
     let last = performance.now(); let frame = 0; const camPos = new THREE.Vector3(1.2, 2, 15.4); const look = new THREE.Vector3(0, 1.3, 10); const tmpV = new THREE.Vector3();
     const publish = () => {
-      const remaining = !restored ? cells.filter((_, i) => !found[i]) : metroCores.filter((_, i) => !metroFound[i]);
-      const target = remaining.length ? remaining.reduce((best, c) => c.position.distanceTo(state.pos) < best.position.distanceTo(state.pos) ? c : best).position : !restored ? new THREE.Vector3(0, 0, -35) : new THREE.Vector3(-9, 0, -50);
+      const remaining = activeLevel === 1 ? cells.filter((_, i) => !found[i]) : metroCores.filter((_, i) => !metroFound[i]);
+      const target = remaining.length ? remaining.reduce((best, c) => c.position.distanceTo(state.pos) < best.position.distanceTo(state.pos) ? c : best).position : activeLevel === 1 ? new THREE.Vector3(0, 0, -35) : new THREE.Vector3(-9, 0, -50);
       const dx = target.x - state.pos.x, dz = target.z - state.pos.z;
-      setStatus({ cells: found.filter(Boolean).length, metroCells: metroFound.filter(Boolean).length, energy: Math.round(state.energy), meters: Math.round(Math.hypot(dx, dz)), direction: Math.atan2(dx, -dz), restored, metroDone, celebrating: (state.restoreTime > 0 && state.time - state.restoreTime < 3.6) || (state.metroTime > 0 && state.time - state.metroTime < 3.6), nearby: restored ? Math.hypot(state.pos.x + 9, state.pos.z + 50) < 4.2 : Math.hypot(state.pos.x, state.pos.z + 35) < 4.2, overcharge: state.over > 0, rail: state.onRail, secret: state.pos.x > 13 && state.pos.z < -23, charge: state.charge, dashing: state.dash > 0, score: Math.round(state.bolts * 10 + state.travelled), bolts: state.bolts, tutorial: startedRef.current && state.travelled < 6 });
+      setStatus({ cells: found.filter(Boolean).length, metroCells: metroFound.filter(Boolean).length, energy: Math.round(state.energy), meters: Math.round(Math.hypot(dx, dz)), direction: Math.atan2(dx, -dz), restored, metroDone, level: activeLevel, coins: progress.coins, celebrating: (state.restoreTime > 0 && state.time - state.restoreTime < 3.6) || (state.metroTime > 0 && state.time - state.metroTime < 3.6), nearby: activeLevel === 2 ? Math.hypot(state.pos.x + 9, state.pos.z + 50) < 4.2 : Math.hypot(state.pos.x, state.pos.z + 35) < 4.2, overcharge: state.over > 0, rail: state.onRail, secret: state.pos.x > 13 && state.pos.z < -23, charge: state.charge, dashing: state.dash > 0, score: Math.round(state.bolts * 10 + state.travelled), bolts: state.bolts, tutorial: startedRef.current && state.travelled < 6 });
     };
     const animate = () => {
       frame = requestAnimationFrame(animate); const now = performance.now(); const dt = Math.min((now - last) / 1000, .04); last = now; if (document.hidden || pausedRef.current) return; state.time += dt; const control = input.current; const playing = startedRef.current;
       if (control.start) { control.start = false; startedRef.current = true; setStarted(true); }
+      if (control.next && restored) { control.next = false; activeLevel = 2; metroCores.forEach((c, i) => { c.visible = !metroFound[i]; }); state.charge = 0; publish(); }
       let horizontal = 0, forward = 0;
       if (playing) {
         horizontal = THREE.MathUtils.clamp(control.x + Number(key.has('KeyD') || key.has('ArrowRight')) - Number(key.has('KeyA') || key.has('ArrowLeft')), -1, 1);
@@ -184,7 +196,7 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored }:
       if (mag > .05 || state.dash > 0) { state.idle = 0; if (mag > .05) state.yaw = Math.atan2(move.x, move.z); } else state.idle += dt;
       const celebrating = (state.restoreTime > 0 && state.time - state.restoreTime < 3.6) || (state.metroTime > 0 && state.time - state.metroTime < 3.6);
       const faceCam = !playing || celebrating || state.idle > 2.2;
-      const charging = control.charge && ((found.every(Boolean) && !restored && Math.hypot(state.pos.x, state.pos.z + 35) < 4.2) || (restored && !metroDone && metroFound.every(Boolean) && Math.hypot(state.pos.x + 9, state.pos.z + 50) < 4.2));
+      const charging = control.charge && ((activeLevel === 1 && found.every(Boolean) && !restored && Math.hypot(state.pos.x, state.pos.z + 35) < 4.2) || (activeLevel === 2 && !metroDone && metroFound.every(Boolean) && Math.hypot(state.pos.x + 9, state.pos.z + 50) < 4.2));
       blu.root.position.copy(state.pos);
       blu.update(dt, { speed: Math.min(1, state.speed / 9), grounded, vy: state.vy, sliding: state.slide > 0, dashing: state.dash > 0, charging, celebrating, overcharge: state.over > 0, waving: !playing || (state.idle > 4 && state.idle % 6 < 1.6), yaw: faceCam ? 0 : state.yaw });
       blu.setEnergy(state.energy);
@@ -197,10 +209,10 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored }:
         dummy.position.set(p.x, p.y + Math.sin(state.time * 4 + i * .5) * .12, p.z); dummy.rotation.set(0, spin + i * .2, 0); dummy.scale.setScalar(boltTaken[i] ? 0 : 1.15); dummy.updateMatrix(); boltMesh.setMatrixAt(i, dummy.matrix);
       }
       boltMesh.instanceMatrix.needsUpdate = true;
-      for (let i = 0; i < 3; i++) { const gem = cells[i].children[0]; gem.rotation.y += dt * 1.8; gem.position.y = 1.9 + Math.sin(state.time * 3 + i) * .2; if (playing && !found[i] && Math.hypot(state.pos.x - cells[i].position.x, state.pos.z - cells[i].position.z) < 1.8 && state.pos.y < 3.5) { found[i] = true; cells[i].visible = false; state.energy = Math.min(100, state.energy + 35); if (state.energy >= 100) { state.over = 7; state.energy = 100; popup(tRef.current.overcharge, tmpV.copy(cells[i].position).setY(4), 'big'); } else popup(tRef.current.cell, tmpV.copy(cells[i].position).setY(3.5)); burst(tmpV.copy(cells[i].position).setY(1.9), 0x6ff7ff, 22, 7, 6); save(); navigator.vibrate?.(35); publish(); } }
-      for (let i = 0; i < 2; i++) { const core = metroCores[i]; core.children[0].rotation.y += dt * 1.4; if (playing && restored && !metroFound[i] && Math.hypot(state.pos.x - core.position.x, state.pos.z - core.position.z) < 1.8) { metroFound[i] = true; core.visible = false; state.energy = Math.min(100, state.energy + 25); popup(tRef.current.core, tmpV.copy(core.position).setY(3.5)); burst(tmpV.copy(core.position).setY(1.6), 0xff7ad0, 22, 7, 6); save(); navigator.vibrate?.(35); publish(); } }
-      if (charging && !restored) { state.charge = Math.min(1, state.charge + dt / 1.6); if (Math.random() < .5) burst(tmpV.set((Math.random() - .5) * 5, .3, -35 + (Math.random() - .5) * 5), 0x6ff7ff, 1, 1, 7); if (state.charge >= 1) { restored = true; state.restoreTime = state.time; state.shake = .5; metroCores.forEach((c, i) => { c.visible = !metroFound[i]; }); save(); applyLights(false); burst(tmpV.set(0, 5, -35), 0xffe27a, 40, 16, 10); callbacks.current.onReward(); navigator.vibrate?.([40, 30, 90]); publish(); } }
-      else if (charging && restored) { state.charge = Math.min(1, state.charge + dt / 1.5); if (state.charge >= 1) { metroDone = true; state.metroTime = state.time; state.shake = .4; stationSign.material = litMats.station; burst(tmpV.set(-9, 4, -50), 0xff7ad0, 36, 14, 9); save(); navigator.vibrate?.([40, 30, 90]); publish(); } }
+      for (let i = 0; i < 3; i++) { const gem = cells[i].children[0]; gem.rotation.y += dt * 1.8; gem.position.y = 1.9 + Math.sin(state.time * 3 + i) * .2; if (playing && activeLevel === 1 && !found[i] && Math.hypot(state.pos.x - cells[i].position.x, state.pos.z - cells[i].position.z) < 1.8 && state.pos.y < 3.5) { found[i] = true; cells[i].visible = false; state.energy = Math.min(100, state.energy + 35); if (state.energy >= 100) { state.over = 7; state.energy = 100; popup(tRef.current.overcharge, tmpV.copy(cells[i].position).setY(4), 'big'); } else popup(tRef.current.cell, tmpV.copy(cells[i].position).setY(3.5)); burst(tmpV.copy(cells[i].position).setY(1.9), 0x6ff7ff, 22, 7, 6); save(); navigator.vibrate?.(35); publish(); } }
+      for (let i = 0; i < 2; i++) { const core = metroCores[i]; core.children[0].rotation.y += dt * 1.4; if (playing && activeLevel === 2 && !metroFound[i] && Math.hypot(state.pos.x - core.position.x, state.pos.z - core.position.z) < 1.8) { metroFound[i] = true; core.visible = false; state.energy = Math.min(100, state.energy + 25); popup(tRef.current.core, tmpV.copy(core.position).setY(3.5)); burst(tmpV.copy(core.position).setY(1.6), 0xff7ad0, 22, 7, 6); save(); navigator.vibrate?.(35); publish(); } }
+      if (charging && activeLevel === 1) { state.charge = Math.min(1, state.charge + dt / 1.6); if (Math.random() < .5) burst(tmpV.set((Math.random() - .5) * 5, .3, -35 + (Math.random() - .5) * 5), 0x6ff7ff, 1, 1, 7); if (state.charge >= 1) { restored = true; state.restoreTime = state.time; state.shake = .5; award(1); applyLights(false); burst(tmpV.set(0, 5, -35), 0xffe27a, 40, 16, 10); callbacks.current.onReward(); navigator.vibrate?.([40, 30, 90]); publish(); } }
+      else if (charging && activeLevel === 2) { state.charge = Math.min(1, state.charge + dt / 1.5); if (state.charge >= 1) { metroDone = true; state.metroTime = state.time; state.shake = .4; stationSign.material = litMats.station; burst(tmpV.set(-9, 4, -50), 0xff7ad0, 36, 14, 9); award(2); navigator.vibrate?.([40, 30, 90]); publish(); } }
       else state.charge = Math.max(0, state.charge - dt * 1.5);
       if (state.restoreTime > 0 && litWindows < wi) { const goal = Math.min(wi, Math.floor((state.time - state.restoreTime) * 160)); for (; litWindows < goal; litWindows++) lightWindow(litWindows); if (windowsMesh.instanceColor) windowsMesh.instanceColor.needsUpdate = true; lamps.forEach((l, i) => { if (i < (state.time - state.restoreTime) * 8) l.material = litMats.lamp; }); signs.forEach((s, i) => { if (i < (state.time - state.restoreTime) * 3) s.material = litMats.sign; }); }
       // Ambient life
@@ -209,7 +221,7 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored }:
       traffic.forEach((v, i) => { v.position.z = 14 - ((state.time * (6 + i * 1.5) + i * 24) % 70); });
       clouds.forEach((c, i) => { c.position.x = ((c.position.x + dt * (1 + i * .3) + 120) % 240) - 120; });
       pad.rotation.y += dt; padRing.scale.setScalar(1 + (state.time * 1.5 % 1) * .5); (padRing.material as THREE.MeshBasicMaterial).opacity = 1;
-      genRing.visible = !restored && found.every(Boolean); genRing.scale.setScalar(1 + Math.sin(state.time * 4) * .05);
+      genRing.visible = activeLevel === 1 && !restored && found.every(Boolean); genRing.scale.setScalar(1 + Math.sin(state.time * 4) * .05);
       for (const p of parts) if (p.life > 0) { p.life -= dt; p.v.y -= 14 * dt; p.m.position.addScaledVector(p.v, dt); p.m.rotation.x += dt * 6; if (p.life <= 0) p.m.visible = false; else p.m.scale.multiplyScalar(.985); }
       trail.forEach((o, i) => { o.visible = state.over > 0 || state.dash > 0; o.position.set(state.pos.x - Math.sin(state.yaw) * (.6 + i * .45) + Math.sin(state.time * 12 + i) * .2, state.pos.y + .8 + Math.sin(state.time * 9 + i) * .25, state.pos.z - Math.cos(state.yaw) * (.6 + i * .45)); o.scale.setScalar(.14 - i * .02); });
       // Camera: title shot in front of BLU, then chase camera
@@ -235,9 +247,9 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored }:
   const stick = (e: React.PointerEvent<HTMLDivElement>) => { const r = e.currentTarget.getBoundingClientRect(); let x = (e.clientX - r.left - r.width / 2) / (r.width / 2), y = (e.clientY - r.top - r.height / 2) / (r.height / 2); const l = Math.hypot(x, y); if (l > 1) { x /= l; y /= l; } input.current.x = x; input.current.y = y; if (knob.current) knob.current.style.transform = `translate(${x * 32}px, ${y * 32}px)`; };
   const release = () => { input.current.x = 0; input.current.y = 0; if (knob.current) knob.current.style.transform = ''; };
   const hold = (on: boolean) => () => { input.current.charge = on; };
-  const objective = status.metroDone ? t.metroDone : status.restored ? status.metroCells < 2 ? t.metroCollect : status.nearby ? t.metroCharge : t.metroStation : status.cells < 3 ? t.collect : status.nearby ? t.charge : t.generator;
-  const total = status.restored ? 2 : 3, got = status.restored ? status.metroCells : status.cells;
-  const canCharge = status.nearby && !status.metroDone && (status.restored ? status.metroCells === 2 : status.cells === 3);
+  const objective = status.level === 1 ? status.restored ? t.done : status.cells < 3 ? t.collect : status.nearby ? t.charge : t.generator : status.metroDone ? t.metroDone : status.metroCells < 2 ? t.metroCollect : status.nearby ? t.metroCharge : t.metroStation;
+  const total = status.level === 1 ? 3 : 2, got = status.level === 1 ? status.cells : status.metroCells;
+  const canCharge = status.nearby && (status.level === 1 ? !status.restored && status.cells === 3 : !status.metroDone && status.metroCells === 2);
   const segs = Math.ceil(status.energy / 20);
 
   return <div className={`play-root ${status.dashing || status.overcharge ? 'is-fast' : ''}`} dir={lang === 'en' ? 'ltr' : 'rtl'}>
@@ -246,6 +258,7 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored }:
     <div ref={fx} className="fx-layer" aria-hidden="true" />
     {unsupported ? <div className="play-unsupported"><img src="/blu.webp" alt="BLU" /><p>{t.unsupported}</p><button className="btn3d yellow" onClick={onMenu}>{t.resume}</button></div> : !started ? <div className="title-screen" onClick={() => { input.current.start = true; begin(); }}>
       <div className="title-logo"><span className="logo-blu">BLU</span><span className="logo-city">CITY</span></div>
+      <p className="level-title">{ui.level} {status.level} · {LEVELS[status.level - 1].title}</p>
       <button className="btn3d yellow tap-play" onClick={e => { e.stopPropagation(); input.current.start = true; begin(); }}>{t.tap}</button>
       <button className="btn3d blue title-menu" onClick={e => { e.stopPropagation(); onMenu(); }}>{t.city}</button>
     </div> : <>
@@ -256,16 +269,17 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored }:
         </div>
         <div className="hud-right">
           <div className="hud-score" aria-label={t.score}>{status.score.toLocaleString('en-US')}</div>
-          <div ref={boltChip} className="hud-bolts"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M13 2 4 13h7l-1 9 10-12h-7l1-8Z" fill="#ffd43b" stroke="#0b2a5b" strokeWidth="2" strokeLinejoin="round" /></svg>{status.bolts}</div>
+          <div ref={boltChip} className="hud-bolts" aria-label={ui.coins}><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M13 2 4 13h7l-1 9 10-12h-7l1-8Z" fill="#ffd43b" stroke="#0b2a5b" strokeWidth="2" strokeLinejoin="round" /></svg>{status.coins}</div>
         </div>
       </div>
       <div className="hud-mission">
         <span className="mission-arrow" style={{ transform: `rotate(${status.direction}rad)` }} aria-hidden="true">▲</span>
-        <div><strong>{objective}</strong><small>{status.metroDone ? t.next : `${status.meters} m`}</small></div>
-        {!status.metroDone && <div className="pips">{Array.from({ length: total }, (_, i) => <i key={i} className={i < got ? (status.restored ? 'on pink' : 'on') : ''} />)}</div>}
+        <div><strong>{ui.level} {status.level} · {objective}</strong><small>{status.metroDone ? t.next : `${status.meters} m`}</small></div>
+        {!(status.metroDone || status.level === 1 && status.restored) && <div className="pips">{Array.from({ length: total }, (_, i) => <i key={i} className={i < got ? (status.level === 2 ? 'on pink' : 'on') : ''} />)}</div>}
       </div>
       {status.tutorial && <div className="play-tutorial">{t.start}</div>}
       {status.celebrating && <div className="victory"><div className="rays" /><strong>{status.metroDone ? t.metroDone : t.done}</strong><span>{status.metroDone ? t.next : t.metro}</span></div>}
+      {status.restored && status.level === 1 && !status.celebrating && <div className="level-complete"><strong>{ui.reward}{LEVELS[0].rewardCoins} {ui.coins}</strong><button className="btn3d yellow" onClick={() => { input.current.next = true; }}>{ui.next}</button></div>}
       <div className="play-controls">
         <div className="play-stick" onPointerDown={e => { e.currentTarget.setPointerCapture(e.pointerId); stick(e); }} onPointerMove={e => { if (e.currentTarget.hasPointerCapture(e.pointerId)) stick(e); }} onPointerUp={release} onPointerCancel={release}><span ref={knob} /></div>
         <div className="play-actions">
@@ -274,7 +288,7 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored }:
           <button className="btn3d round yellow act-jump" onPointerDown={() => { input.current.jump = true; }}><span>{t.jump}</span></button>
         </div>
       </div>
-      {paused && <div className="play-pause"><div className="pause-card"><h2>{t.pause}</h2><button className="btn3d yellow" onClick={() => setPaused(false)}>{t.continue}</button><button className="btn3d blue" onClick={onMenu}>{t.menu}</button></div></div>}
+      {paused && <div className="play-pause"><div className="pause-card"><h2>{t.pause}</h2><p>{ui.level} 1 · {LEVELS[0].title} {status.restored ? '✓' : `${status.cells}/3`}</p><p>{ui.level} 2 · {status.restored ? `${LEVELS[1].title} ${status.metroDone ? '✓' : `${status.metroCells}/2`}` : ui.locked}</p><p>{ui.coins}: {status.coins}</p><small>{ui.local}</small><button className="btn3d yellow" onClick={() => setPaused(false)}>{t.continue}</button><button className="btn3d blue" onClick={onMenu}>{t.menu}</button></div></div>}
     </>}
   </div>;
 }

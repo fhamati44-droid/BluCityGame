@@ -122,3 +122,6 @@
 .city-orb{color:var(--blu);filter:none}
 .loading-state{color:#fff;font-weight:900}.loading-battery{border:3px solid var(--ink);background:var(--volt);color:var(--ink);box-shadow:0 5px 0 var(--ink)}
 @media(min-width:561px){body{background:#2b1d6a}}
+.level-title { color: #fff; font-weight: 900; letter-spacing: .06em; text-shadow: 0 2px 8px #172755; text-align: center; }
+.level-complete { position: absolute; z-index: 35; left: 50%; top: 31%; transform: translateX(-50%); display: grid; gap: 12px; min-width: min(82vw, 320px); padding: 20px; text-align: center; color: #fff; background: rgba(15, 36, 83, .91); border: 2px solid #68eaff; border-radius: 22px; box-shadow: 0 12px 30px #07143388; }
+.level-complete strong { font-size: 1.15rem; }
