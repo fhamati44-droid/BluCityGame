@@ -65,6 +65,7 @@ export default function Home() {
         const d = await r.json();
         if (!r.ok) {
           let code = d.code || `HTTP_${r.status}`;
+          if (d.dbCode) code += ` (${d.dbCode})`;
           if (r.status === 401) { try { const check = await fetch('/api/game', { cache: 'no-store', signal: AbortSignal.timeout(15000) }); const health = await check.json(); if (health.code && health.code !== 'SETUP_OK') code = health.code; } catch { /* keep original authentication code */ } }
           setConnectionCode(code); setMode('error'); return;
         }

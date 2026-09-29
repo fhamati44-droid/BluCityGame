@@ -20,6 +20,12 @@ export async function GET() {
     const db = createClient(url, key, { auth: { persistSession: false }, global: { fetch: (input, init) => fetch(input, { ...init, signal: AbortSignal.timeout(5000) }) } });
     const { error } = await db.from('blu_players').select('telegram_id').limit(0);
     if (error) return NextResponse.json({ code: error.code === 'PGRST205' || error.code === '42P01' ? 'PLAYER_TABLE_MISSING' : 'SUPABASE_CONNECTION_FAILED' }, { status: 503, headers });
+    // The invalid ID fails at the first guard, before any insert/update. This probes RPC permissions without creating a player.
+    const { error: rpcError } = await db.rpc('blu_game_action', { p_user_id: 0, p_name: 'Setup check', p_referrer: null, p_action: 'open' });
+    if (!rpcError || rpcError.code !== 'P0001' || rpcError.message !== 'invalid action') {
+      const code = rpcError?.code === '42501' ? 'SUPABASE_RPC_PERMISSION_DENIED' : rpcError?.code === 'PGRST202' ? 'GAME_FUNCTION_MISSING' : 'GAME_FUNCTION_CHECK_FAILED';
+      return NextResponse.json({ code }, { status: 503, headers });
+    }
     return NextResponse.json({ code: 'SETUP_OK' }, { headers });
   } catch { return NextResponse.json({ code: 'SUPABASE_CONNECTION_FAILED' }, { status: 503, headers }); }
 }
@@ -37,7 +43,7 @@ export async function POST(request: NextRequest) {
     if (!url || !key) return NextResponse.json({error:'Server is not configured',code:'SUPABASE_CONFIG_MISSING'},{status:503});
     const db = createClient(url,key,{auth:{persistSession:false}});
     const {data,error} = await db.rpc('blu_game_action',{p_user_id:identity.id,p_name:identity.name,p_referrer:identity.referral ?? null,p_action:action});
-    if (error) { console.error('game action failed',error.code); return NextResponse.json({error:'Game action failed',code:error.code === 'PGRST202' ? 'GAME_FUNCTION_MISSING' : 'SUPABASE_ACTION_FAILED'},{status:500}); }
+    if (error) { console.error('game action failed',error.code); const code = error.code === 'PGRST202' ? 'GAME_FUNCTION_MISSING' : error.code === '42501' ? 'SUPABASE_RPC_PERMISSION_DENIED' : error.code === '42702' ? 'GAME_SQL_AMBIGUOUS_COLUMN' : error.code === '42703' ? 'GAME_SCHEMA_COLUMN_MISSING' : 'SUPABASE_ACTION_FAILED'; return NextResponse.json({error:'Game action failed',code,dbCode: /^[A-Z0-9]{5,12}$/.test(error.code || '') ? error.code : undefined},{status:500}); }
     return NextResponse.json(data,{headers:{'Cache-Control':'no-store'}});
   } catch { return NextResponse.json({error:'Invalid request'},{status:400}); }
 }
