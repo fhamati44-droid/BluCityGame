@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { BluRig, toon } from './BluRig';
-import { completeLevel, LEVELS, parseLevelProgress, SAVE_KEY, type LevelId } from '../../lib/levels';
+import { completeLevel, exchangeCoins, upgradeDash, COINS_PER_BLU, DASH_COST_BLU, LEVELS, parseLevelProgress, SAVE_KEY, type LevelId } from '../../lib/levels';
 
 type Lang = 'en' | 'he' | 'ar';
 type Props = { lang: Lang; onMenu: () => void; onReward: () => void; serverRestored: boolean };
@@ -12,21 +12,21 @@ const copy = {
   he: { zone: 'Central Grid', collect: 'מצא 3 תאי אנרגיה', generator: 'רוץ לגנרטור הראשי', charge: 'החזק טעינה כדי להחזיר חשמל', done: 'החשמל חזר!', next: 'מגדל האנרגיה הבא בתור', metro: 'מרוץ המטרו', metroCollect: 'מצא 2 ליבות איתות', metroStation: 'רוץ לתחנת המטרו', metroCharge: 'החזק טעינה להפעלת המטרו', metroDone: 'המטרו נוסע!', menu: 'תפריט', jump: 'קפיצה', dash: 'דאש', interact: 'טעינה', start: 'ג׳ויסטיק לתנועה · החלק למעלה לקפיצה', unsupported: 'המכשיר הזה לא יכול להציג את העיר בתלת־ממד', resume: 'פתח את מפת העיר', rail: 'גלישה על המסילה!', secret: 'דרך סודית!', pause: 'הפסקה', continue: 'ממשיכים לשחק', overcharge: 'טעינת יתר!', tap: 'לחץ כדי לשחק', score: 'ניקוד', city: 'עיר', flip: 'סלטה!', cell: 'תא אנרגיה!', core: 'ליבת איתות!' },
   ar: { zone: 'Central Grid', collect: 'اجمع 3 خلايا طاقة', generator: 'اركض للمولّد الرئيسي', charge: 'اضغط مطولًا لترجع الكهربا', done: 'رجعت الكهربا!', next: 'برج الطاقة هو الجاي', metro: 'سباق المترو', metroCollect: 'اجمع نواتين للإشارة', metroStation: 'اركض لمحطة المترو', metroCharge: 'اضغط مطولًا لتشغيل المترو', metroDone: 'المترو ماشي!', menu: 'القائمة', jump: 'اقفز', dash: 'اندفاع', interact: 'شحن', start: 'العصا للحركة · اسحب لفوق للقفز', unsupported: 'هالجهاز ما بقدر يعرض المدينة 3D', resume: 'افتح خريطة المدينة', rail: 'تزحلق على السكة!', secret: 'طريق سري!', pause: 'توقف', continue: 'كمّل لعب', overcharge: 'طاقة خارقة!', tap: 'اضغط لتلعب', score: 'النقاط', city: 'مدينة', flip: 'شقلبة!', cell: 'خلية طاقة!', core: 'نواة إشارة!' },
 };
-type Status = { cells: number; metroCells: number; energy: number; meters: number; direction: number; restored: boolean; metroDone: boolean; level: LevelId; coins: number; celebrating: boolean; nearby: boolean; overcharge: boolean; rail: boolean; secret: boolean; charge: number; dashing: boolean; score: number; bolts: number; tutorial: boolean };
+type Status = { cells: number; metroCells: number; energy: number; meters: number; direction: number; restored: boolean; metroDone: boolean; level: LevelId; coins: number; blu: number; dashLevel: number; celebrating: boolean; nearby: boolean; overcharge: boolean; rail: boolean; secret: boolean; charge: number; dashing: boolean; score: number; bolts: number; tutorial: boolean };
 const PALETTE = [0xff7b8e, 0x4fd6c8, 0xffc94d, 0x8b8cff, 0xff9f5a, 0x6fd3ff, 0xc98bff];
 
 export default function PlayableCity({ lang, onMenu, onReward, serverRestored }: Props) {
   const host = useRef<HTMLDivElement>(null); const fx = useRef<HTMLDivElement>(null); const knob = useRef<HTMLSpanElement>(null); const boltChip = useRef<HTMLDivElement>(null);
-  const input = useRef({ x: 0, y: 0, jump: false, dash: false, slide: false, charge: false, start: false, next: false });
+  const input = useRef({ x: 0, y: 0, jump: false, dash: false, slide: false, charge: false, start: false, next: false, exchange: false, upgrade: false });
   const callbacks = useRef({ onReward }); callbacks.current.onReward = onReward;
   const [unsupported, setUnsupported] = useState(false); const [paused, setPaused] = useState(false); const pausedRef = useRef(false); pausedRef.current = paused;
   const [started, setStarted] = useState(false); const startedRef = useRef(false);
-  const [status, setStatus] = useState<Status>({ cells: 0, metroCells: 0, energy: 0, meters: 0, direction: 0, restored: false, metroDone: false, level: 1, coins: 0, celebrating: false, nearby: false, overcharge: false, rail: false, secret: false, charge: 0, dashing: false, score: 0, bolts: 0, tutorial: true });
+  const [status, setStatus] = useState<Status>({ cells: 0, metroCells: 0, energy: 0, meters: 0, direction: 0, restored: false, metroDone: false, level: 1, coins: 0, blu: 0, dashLevel: 0, celebrating: false, nearby: false, overcharge: false, rail: false, secret: false, charge: 0, dashing: false, score: 0, bolts: 0, tutorial: true });
   const t = copy[lang]; const tRef = useRef(t); tRef.current = t;
   const ui = {
-    en: { level: 'LEVEL', coins: 'COINS', reward: 'LEVEL COMPLETE · +', next: 'Continue to Level 2', finish: 'Chapter complete', locked: 'Complete Level 1 to unlock', local: 'Progress saved on this device' },
-    he: { level: 'שלב', coins: 'מטבעות', reward: 'השלב הושלם · +', next: 'המשך לשלב 2', finish: 'הפרק הושלם', locked: 'יש להשלים את שלב 1', local: 'ההתקדמות נשמרת במכשיר הזה' },
-    ar: { level: 'المرحلة', coins: 'العملات', reward: 'اكتملت المرحلة · +', next: 'تابع إلى المرحلة 2', finish: 'اكتمل الفصل', locked: 'أكمل المرحلة 1 أولاً', local: 'يُحفظ التقدم على هذا الجهاز' },
+    en: { level: 'LEVEL', coins: 'COINS', reward: 'LEVEL COMPLETE · +', next: 'Continue to Level 2', locked: 'Complete Level 1 to unlock', local: 'Progress saved on this device', exchange: 'Exchange 100 Coin → 1 BLU', upgrade: 'Upgrade dash · 2 BLU', dash: 'Dash upgrade' },
+    he: { level: 'שלב', coins: 'מטבעות', reward: 'השלב הושלם · +', next: 'המשך לשלב 2', locked: 'יש להשלים את שלב 1', local: 'ההתקדמות נשמרת במכשיר הזה', exchange: 'המר 100 Coin ל־1 BLU', upgrade: 'שדרג דאש · 2 BLU', dash: 'שדרוג דאש' },
+    ar: { level: 'المرحلة', coins: 'العملات', reward: 'اكتملت المرحلة · +', next: 'تابع إلى المرحلة 2', locked: 'أكمل المرحلة 1 أولاً', local: 'يُحفظ التقدم على هذا الجهاز', exchange: 'حوّل 100 Coin إلى 1 BLU', upgrade: 'طوّر الاندفاع · 2 BLU', dash: 'تطوير الاندفاع' },
   }[lang];
   const begin = () => { if (startedRef.current) return; startedRef.current = true; setStarted(true); };
 
@@ -157,17 +157,20 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored }:
       const remaining = activeLevel === 1 ? cells.filter((_, i) => !found[i]) : metroCores.filter((_, i) => !metroFound[i]);
       const target = remaining.length ? remaining.reduce((best, c) => c.position.distanceTo(state.pos) < best.position.distanceTo(state.pos) ? c : best).position : activeLevel === 1 ? new THREE.Vector3(0, 0, -35) : new THREE.Vector3(-9, 0, -50);
       const dx = target.x - state.pos.x, dz = target.z - state.pos.z;
-      setStatus({ cells: found.filter(Boolean).length, metroCells: metroFound.filter(Boolean).length, energy: Math.round(state.energy), meters: Math.round(Math.hypot(dx, dz)), direction: Math.atan2(dx, -dz), restored, metroDone, level: activeLevel, coins: progress.coins, celebrating: (state.restoreTime > 0 && state.time - state.restoreTime < 3.6) || (state.metroTime > 0 && state.time - state.metroTime < 3.6), nearby: activeLevel === 2 ? Math.hypot(state.pos.x + 9, state.pos.z + 50) < 4.2 : Math.hypot(state.pos.x, state.pos.z + 35) < 4.2, overcharge: state.over > 0, rail: state.onRail, secret: state.pos.x > 13 && state.pos.z < -23, charge: state.charge, dashing: state.dash > 0, score: Math.round(state.bolts * 10 + state.travelled), bolts: state.bolts, tutorial: startedRef.current && state.travelled < 6 });
+      setStatus({ cells: found.filter(Boolean).length, metroCells: metroFound.filter(Boolean).length, energy: Math.round(state.energy), meters: Math.round(Math.hypot(dx, dz)), direction: Math.atan2(dx, -dz), restored, metroDone, level: activeLevel, coins: progress.coins, blu: progress.blu, dashLevel: progress.dashLevel, celebrating: (state.restoreTime > 0 && state.time - state.restoreTime < 3.6) || (state.metroTime > 0 && state.time - state.metroTime < 3.6), nearby: activeLevel === 2 ? Math.hypot(state.pos.x + 9, state.pos.z + 50) < 4.2 : Math.hypot(state.pos.x, state.pos.z + 35) < 4.2, overcharge: state.over > 0, rail: state.onRail, secret: state.pos.x > 13 && state.pos.z < -23, charge: state.charge, dashing: state.dash > 0, score: Math.round(state.bolts * 10 + state.travelled), bolts: state.bolts, tutorial: startedRef.current && state.travelled < 6 });
     };
     const animate = () => {
-      frame = requestAnimationFrame(animate); const now = performance.now(); const dt = Math.min((now - last) / 1000, .04); last = now; if (document.hidden || pausedRef.current) return; state.time += dt; const control = input.current; const playing = startedRef.current;
+      frame = requestAnimationFrame(animate); const now = performance.now(); const dt = Math.min((now - last) / 1000, .04); last = now;
+      if (input.current.exchange) { input.current.exchange = false; const next = exchangeCoins(progress); if (next !== progress) { progress = next; save(); publish(); } }
+      if (input.current.upgrade) { input.current.upgrade = false; const next = upgradeDash(progress); if (next !== progress) { progress = next; save(); publish(); } }
+      if (document.hidden || pausedRef.current) return; state.time += dt; const control = input.current; const playing = startedRef.current;
       if (control.start) { control.start = false; startedRef.current = true; setStarted(true); }
       if (control.next && restored) { control.next = false; activeLevel = 2; metroCores.forEach((c, i) => { c.visible = !metroFound[i]; }); state.charge = 0; publish(); }
       let horizontal = 0, forward = 0;
       if (playing) {
         horizontal = THREE.MathUtils.clamp(control.x + Number(key.has('KeyD') || key.has('ArrowRight')) - Number(key.has('KeyA') || key.has('ArrowLeft')), -1, 1);
         forward = THREE.MathUtils.clamp(-control.y + Number(key.has('KeyW') || key.has('ArrowUp')) - Number(key.has('KeyS') || key.has('ArrowDown')), -1, 1);
-        if (control.dash && state.dash <= 0 && state.energy >= 12) { state.dash = .34; state.energy -= 12; state.shake = .15; } 
+        if (control.dash && state.dash <= 0 && state.energy >= 12) { state.dash = .34 + progress.dashLevel * .1; state.energy -= 12; state.shake = .15; }
         if (control.slide && state.pos.y < .1) state.slide = .6;
         if (control.jump && state.jumps < 2) { state.vy = state.jumps ? 9.5 : 10.8; state.jumps++; state.airborne = true; blu.jump(state.jumps === 2); if (state.jumps === 2) popup(tRef.current.flip, tmpV.copy(state.pos).setY(state.pos.y + 3), 'small'); }
       }
@@ -288,7 +291,7 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored }:
           <button className="btn3d round yellow act-jump" onPointerDown={() => { input.current.jump = true; }}><span>{t.jump}</span></button>
         </div>
       </div>
-      {paused && <div className="play-pause"><div className="pause-card"><h2>{t.pause}</h2><p>{ui.level} 1 · {LEVELS[0].title} {status.restored ? '✓' : `${status.cells}/3`}</p><p>{ui.level} 2 · {status.restored ? `${LEVELS[1].title} ${status.metroDone ? '✓' : `${status.metroCells}/2`}` : ui.locked}</p><p>{ui.coins}: {status.coins}</p><small>{ui.local}</small><button className="btn3d yellow" onClick={() => setPaused(false)}>{t.continue}</button><button className="btn3d blue" onClick={onMenu}>{t.menu}</button></div></div>}
+      {paused && <div className="play-pause"><div className="pause-card"><h2>{t.pause}</h2><p>{ui.level} 1 · {LEVELS[0].title} {status.restored ? '✓' : `${status.cells}/3`}</p><p>{ui.level} 2 · {status.restored ? `${LEVELS[1].title} ${status.metroDone ? '✓' : `${status.metroCells}/2`}` : ui.locked}</p><p>{ui.coins}: {status.coins} · BLU: {status.blu}</p><p>{ui.dash}: {status.dashLevel}/3</p><button className="btn3d yellow" disabled={status.coins < COINS_PER_BLU} onClick={() => { input.current.exchange = true; }}>{ui.exchange}</button><button className="btn3d blue" disabled={status.blu < DASH_COST_BLU || status.dashLevel >= 3} onClick={() => { input.current.upgrade = true; }}>{ui.upgrade}</button><small>{ui.local}</small><button className="btn3d yellow" onClick={() => setPaused(false)}>{t.continue}</button><button className="btn3d blue" onClick={onMenu}>{t.menu}</button></div></div>}
     </>}
   </div>;
 }

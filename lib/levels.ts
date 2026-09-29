@@ -12,6 +12,8 @@ export type LevelProgress = {
   metro: boolean[];
   metroDone: boolean;
   coins: number;
+  blu: number;
+  dashLevel: number;
   claimed: LevelId[];
 };
 
@@ -30,6 +32,8 @@ export function parseLevelProgress(raw: string | null): LevelProgress {
     metro: metroDone ? [true, true] : flags(data.metro, 2),
     metroDone,
     coins: Number.isSafeInteger(data.coins) && Number(data.coins) >= 0 ? Math.min(Number(data.coins), 1_000_000) : 0,
+    blu: Number.isSafeInteger(data.blu) && Number(data.blu) >= 0 ? Math.min(Number(data.blu), 100_000) : 0,
+    dashLevel: Number.isSafeInteger(data.dashLevel) && Number(data.dashLevel) >= 0 ? Math.min(Number(data.dashLevel), 3) : 0,
     claimed: [...new Set(claimed)],
   };
 }
@@ -40,3 +44,12 @@ export function completeLevel(progress: LevelProgress, id: LevelId): LevelProgre
 }
 
 export function unlockedLevel(progress: LevelProgress): LevelId { return progress.restored ? 2 : 1; }
+
+export const COINS_PER_BLU = 100;
+export const DASH_COST_BLU = 2;
+export function exchangeCoins(progress: LevelProgress): LevelProgress {
+  return progress.coins >= COINS_PER_BLU ? { ...progress, coins: progress.coins - COINS_PER_BLU, blu: progress.blu + 1 } : progress;
+}
+export function upgradeDash(progress: LevelProgress): LevelProgress {
+  return progress.blu >= DASH_COST_BLU && progress.dashLevel < 3 ? { ...progress, blu: progress.blu - DASH_COST_BLU, dashLevel: progress.dashLevel + 1 } : progress;
+}
