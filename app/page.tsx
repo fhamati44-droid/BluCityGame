@@ -54,13 +54,22 @@ function ActionCard({ icon, tint, title, description, detail, children }: { icon
 function Navigation({ tab, select, t }: { tab: Tab; select: (tab: Tab) => void; t: Copy }) { const entries: { id: Tab; icon: string; label: string }[] = [{ id: 'home', icon: 'home', label: t.home }, { id: 'tasks', icon: 'tasks', label: t.tasks }, { id: 'city', icon: 'city', label: t.city }, { id: 'friends', icon: 'friends', label: t.friends }, { id: 'profile', icon: 'profile', label: t.profile }]; return <nav className="bottom-nav" aria-label="Game navigation">{entries.map(item => <button key={item.id} className={tab === item.id ? 'selected' : ''} aria-current={tab === item.id ? 'page' : undefined} onClick={() => select(item.id)}><Icon name={item.icon}/><span>{item.label}</span></button>)}</nav>; }
 
 export default function Home() {
+  const [connectionCode, setConnectionCode] = useState('');
   const [lang, setLang] = useState<Lang>('en'); const [player, setPlayer] = useState<Player>(initial); const [tab, setTab] = useState<Tab>('home'); const [place, setPlace] = useState<Place | null>(null); const [mode, setMode] = useState<'loading' | 'live' | 'demo' | 'error'>('loading'); const [busy, setBusy] = useState(false); const [message, setMessage] = useState(''); const [tick, setTick] = useState(0); const [telegram, setTelegram] = useState<Tg | null>(null); const [celebrate, setCelebrate] = useState(false); const [playing, setPlaying] = useState(true);
   const t: Copy = words[lang]; const rtl = lang !== 'en';
   useEffect(() => {
     const tg = window.Telegram?.WebApp || null; setTelegram(tg); tg?.ready(); tg?.expand();
     const pref = tg?.initDataUnsafe?.user?.language_code || navigator.language || 'en'; setLang(pref.startsWith('he') ? 'he' : pref.startsWith('ar') ? 'ar' : 'en');
     if (tg?.initData) {
-      fetch('/api/game', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ initData: tg.initData, action: 'open' }) }).then(async r => { if (!r.ok) throw Error(); const d = await r.json(); setPlayer(d.player); setMode('live'); }).catch(() => setMode('error'));
+      fetch('/api/game', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ initData: tg.initData, action: 'open' }), signal: AbortSignal.timeout(15000) }).then(async r => {
+        const d = await r.json();
+        if (!r.ok) {
+          let code = d.code || `HTTP_${r.status}`;
+          if (r.status === 401) { try { const check = await fetch('/api/game', { cache: 'no-store', signal: AbortSignal.timeout(15000) }); const health = await check.json(); if (health.code && health.code !== 'SETUP_OK') code = health.code; } catch { /* keep original authentication code */ } }
+          setConnectionCode(code); setMode('error'); return;
+        }
+        setPlayer(d.player); setMode('live');
+      }).catch(() => { setConnectionCode('NETWORK_OR_TIMEOUT'); setMode('error'); });
     } else { try { const saved = localStorage.getItem('blu_demo'); if (saved) setPlayer(JSON.parse(saved)); } catch {} setMode('demo'); }
     const timer = setInterval(() => setTick(Date.now()), 30000); setTick(Date.now()); return () => clearInterval(timer);
   }, []);
@@ -89,7 +98,7 @@ export default function Home() {
   return <main className="game-shell" lang={lang} dir={rtl ? 'rtl' : 'ltr'}>
     <div className="background-stars" aria-hidden="true"/>
     <header className="topbar"><div className="logo-lockup"><span className="logo-mark"><Icon name="bolt" size={24}/></span><div><strong>BLU<span className="logo-dot">.</span></strong><small>{t.cityName}</small></div></div><div className="topbar-right"><span className="level-chip"><Icon name="spark" size={13}/> {t.level} {player.level}</span><select className="language-select" aria-label={t.language} value={lang} onChange={e => setLang(e.target.value as Lang)}><option value="en">EN</option><option value="he">עב</option><option value="ar">عر</option></select></div></header>
-    {mode === 'loading' ? <div className="loading-state" role="status"><div className="loading-battery"><Icon name="bolt" size={36}/></div><p>{t.loading}</p><div className="loading-line"/></div> : mode === 'error' ? <section className="error-state" role="alert"><BLUCharacter low/><h1>{t.connectionError}</h1><GameButton onClick={() => window.location.reload()}>{t.retry}</GameButton></section> : playing ? <PlayableCity lang={lang} onMenu={() => setPlaying(false)} serverRestored={false} onReward={() => { if (!busy && !missionWait && player.charge >= 10) void act('mission'); }} /> : <>
+    {mode === 'loading' ? <div className="loading-state" role="status"><div className="loading-battery"><Icon name="bolt" size={36}/></div><p>{t.loading}</p><div className="loading-line"/></div> : mode === 'error' ? <section className="error-state" role="alert"><BLUCharacter low/><h1>{t.connectionError}</h1>{connectionCode && <p dir="ltr" style={{ textAlign: 'center', fontFamily: 'monospace', fontSize: 14, overflowWrap: 'anywhere' }}>BLU: {connectionCode}</p>}<GameButton onClick={() => window.location.reload()}>{t.retry}</GameButton></section> : playing ? <PlayableCity lang={lang} onMenu={() => setPlaying(false)} serverRestored={false} onReward={() => { if (!busy && !missionWait && player.charge >= 10) void act('mission'); }} /> : <>
       <button className="return-to-game" onClick={() => setPlaying(true)}>▶ {lang === 'he' ? 'חזור למשחק' : lang === 'ar' ? 'ارجع للعبة' : 'RETURN TO GAME'}</button>
       <div className={`mode-strip ${mode}`}><span className="mode-dot"/>{mode === 'live' ? t.live : t.demo}</div>
       {tab === 'home' && <><section className="world-intro"><div><SectionLabel>{world.journey}</SectionLabel><h1>{world.title}</h1><p>{world.hint}</p></div><div className="world-blu"><Image src="/blu.webp" alt="BLU" width={112} height={112} priority/></div></section>
