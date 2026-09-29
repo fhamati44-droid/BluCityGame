@@ -4,12 +4,13 @@ import Image from 'next/image';
 import dynamic from 'next/dynamic';
 import { useEffect, useState } from 'react';
 import GameHub from './components/GameHub';
+import { initializeProgress, refreshProgress } from '../lib/progress-store';
 const PlayableCity = dynamic(() => import('./components/PlayableCity'), { ssr: false, loading: () => <div className="play-boot">POWERING UP BLU CITY…</div> });
 
 type Lang = 'en' | 'he' | 'ar';
 type Action = 'mission' | 'charge' | 'upgrade' | 'district';
 type Player = { sparks: number; charge: number; level: number; district: number; missions: number; lastCharge: string | null; lastMission: string | null; referrals: number };
-type Tg = { initData: string; initDataUnsafe?: { user?: { id: number; first_name?: string; username?: string; language_code?: string } }; ready: () => void; expand: () => void; HapticFeedback?: { impactOccurred: (s: string) => void }; BackButton?: { show: () => void; hide: () => void; onClick: (fn: () => void) => void; offClick: (fn: () => void) => void } };
+type Tg = { initData: string; initDataUnsafe?: { user?: { id: number; first_name?: string; username?: string; language_code?: string } }; ready: () => void; expand: () => void; openInvoice?: (url:string,callback:(status:string)=>void)=>void; HapticFeedback?: { impactOccurred: (s: string) => void }; BackButton?: { show: () => void; hide: () => void; onClick: (fn: () => void) => void; offClick: (fn: () => void) => void } };
 declare global { interface Window { Telegram?: { WebApp?: Tg } } }
 
 const initial: Player = { sparks: 50, charge: 70, level: 1, district: 1, missions: 0, lastCharge: null, lastMission: null, referrals: 0 };
@@ -44,7 +45,7 @@ function BLUCharacter({ low = false, celebrate = false }: { low?: boolean; celeb
 
 export default function Home() {
   const [connectionCode, setConnectionCode] = useState('');
-  const [lang, setLang] = useState<Lang>('en'); const [player, setPlayer] = useState<Player>(initial); const [mode, setMode] = useState<'loading' | 'live' | 'demo' | 'error'>('loading'); const [busy, setBusy] = useState(false); const [message, setMessage] = useState(''); const [tick, setTick] = useState(0); const [telegram, setTelegram] = useState<Tg | null>(null); const [celebrate, setCelebrate] = useState(false); const [playing, setPlaying] = useState(false);
+  const [lang, setLang] = useState<Lang>('en'); const [player, setPlayer] = useState<Player>(initial); const [mode, setMode] = useState<'loading' | 'live' | 'demo' | 'error'>('loading'); const [busy, setBusy] = useState(false); const [message, setMessage] = useState(''); const [tick, setTick] = useState(0); const [telegram, setTelegram] = useState<Tg | null>(null); const [celebrate, setCelebrate] = useState(false); const [playing, setPlaying] = useState(false); const [challenge,setChallenge]=useState(false);
   const t: Copy = words[lang]; const rtl = lang !== 'en';
   useEffect(() => {
     const tg = window.Telegram?.WebApp || null; setTelegram(tg); tg?.ready(); tg?.expand();
@@ -58,9 +59,16 @@ export default function Home() {
           if (r.status === 401) { try { const check = await fetch('/api/game', { cache: 'no-store', signal: AbortSignal.timeout(15000) }); const health = await check.json(); if (health.code && health.code !== 'SETUP_OK') code = health.code; } catch { /* keep original authentication code */ } }
           setConnectionCode(code); setMode('error'); return;
         }
-        setPlayer(d.player); setMode('live');
+        setPlayer(d.player); await initializeProgress(tg.initData); setMode('live');
       }).catch(() => { setConnectionCode('NETWORK_OR_TIMEOUT'); setMode('error'); });
-    } else { try { const saved = localStorage.getItem('blu_demo'); if (saved) setPlayer(JSON.parse(saved)); } catch {} setMode('demo'); }
+    } else {
+      void (async()=>{try{
+        const ticket=new URLSearchParams(location.search).get('connect');
+        if(ticket){const r=await fetch('/api/progress',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'connect',ticket})});history.replaceState(null,'',location.pathname);if(!r.ok){setConnectionCode('LINK_EXPIRED');setMessage('Browser connection expired. Open a new link from your Telegram profile.');}}
+        await initializeProgress();
+        try{const saved=localStorage.getItem('blu_demo');if(saved)setPlayer(JSON.parse(saved));}catch{}
+      }catch{setMessage('Could not connect. Please reopen the game.');}finally{setMode('demo');}})();
+    }
     const timer = setInterval(() => setTick(Date.now()), 30000); setTick(Date.now()); return () => clearInterval(timer);
   }, []);
 
@@ -85,7 +93,7 @@ export default function Home() {
   return <main className="game-shell premium-shell" lang={lang} dir={rtl ? 'rtl' : 'ltr'}>
     <div className="background-stars" aria-hidden="true" />
     <header className="topbar"><div className="logo-lockup"><span className="logo-mark"><Icon name="bolt" size={24} /></span><div><strong>BLU<span className="logo-dot">.</span></strong><small>CITY OF ENERGY</small></div></div><div className="topbar-right"><select className="language-select" aria-label={t.language} value={lang} onChange={e => setLang(e.target.value as Lang)}><option value="en">EN</option><option value="he">עברית</option><option value="ar">عربي</option></select></div></header>
-    {mode === 'loading' ? <div className="loading-state" role="status"><div className="loading-battery"><Icon name="bolt" size={36} /></div><p>{t.loading}</p><div className="loading-line" /></div> : mode === 'error' ? <section className="error-state" role="alert"><BLUCharacter low /><h1>{t.connectionError}</h1>{connectionCode && <p dir="ltr" style={{ textAlign: 'center', fontFamily: 'monospace', fontSize: 14, overflowWrap: 'anywhere' }}>BLU: {connectionCode}</p>}<GameButton onClick={() => window.location.reload()}>{t.retry}</GameButton></section> : playing ? <PlayableCity lang={lang} onMenu={() => setPlaying(false)} serverRestored={false} onReward={() => { if (!busy && !missionWait && player.charge >= 10) void act('mission'); }} /> : <GameHub lang={lang} name={playerName} username={telegram?.initDataUnsafe?.user?.username} live={mode === 'live'} player={player} busy={busy} chargeWait={chargeWait} onPlay={() => setPlaying(true)} onShare={share} onCharge={() => { void act('charge'); }} backButton={telegram?.BackButton} />}
+    {mode === 'loading' ? <div className="loading-state" role="status"><div className="loading-battery"><Icon name="bolt" size={36} /></div><p>{t.loading}</p><div className="loading-line" /></div> : mode === 'error' ? <section className="error-state" role="alert"><BLUCharacter low /><h1>{t.connectionError}</h1>{connectionCode && <p dir="ltr" style={{ textAlign: 'center', fontFamily: 'monospace', fontSize: 14, overflowWrap: 'anywhere' }}>BLU: {connectionCode}</p>}<GameButton onClick={() => window.location.reload()}>{t.retry}</GameButton></section> : playing ? <PlayableCity lang={lang} onMenu={() => setPlaying(false)} serverRestored={false} challenge={challenge} onReward={() => { void refreshProgress(); }} /> : <GameHub lang={lang} name={playerName} username={telegram?.initDataUnsafe?.user?.username} live={mode === 'live'} player={player} busy={busy} chargeWait={chargeWait} onPlay={(run=false) => {setChallenge(run);setPlaying(true);}} onShare={share} onCharge={() => { void act('charge'); }} backButton={telegram?.BackButton} />}
     {message && <div className="toast" role="status" onClick={() => setMessage('')}><Icon name="spark" size={18} />{message}</div>}
   </main>;
 }

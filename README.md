@@ -34,3 +34,6 @@ If the Vercel project is connected to GitHub but shows “No Production Deployme
 ## Product limits
 
 Central Grid currently has two playable missions. The Energy Tower chapter, skins, multiplayer and leaderboards are marked as planned. There are no payments, external token, push reminders, or admin console. Mission completion callbacks still preserve the original server profile behavior; playable stage IDs are separate from server upgrade tiers. Full commercial use of BLU as the game's name needs trademark clearance in launch countries.
+
+## Chapter 1 update
+Six sequential gameplay missions, repeatable Energy Circuit, Coin equipment shop, visible rig colors, unified client save and server command API are implemented. See [GAME_ARCHITECTURE.md](GAME_ARCHITECTURE.md). Apply `supabase/progression_v3.sql` before cross-device play. Telegram Stars purchases are implemented but disabled until server environment/webhook/support setup and live testing. They are not active merely because the site deploys.

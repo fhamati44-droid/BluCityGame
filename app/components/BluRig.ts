@@ -51,6 +51,7 @@ export class BluRig {
   private eyes: THREE.Group[] = []; private irises: THREE.Group[] = []; private brows: THREE.Group[] = [];
   private mouth = new THREE.Group();
   private bodyMat: THREE.MeshToonMaterial;
+  private shoeMat!: THREE.MeshToonMaterial; private gloveMat!: THREE.MeshToonMaterial; private lastLook="";
   private decalCanvas: HTMLCanvasElement; private decalTex: THREE.CanvasTexture; private decalBars = -1;
   private backBolt: THREE.MeshBasicMaterial;
   private disposables: { dispose: () => void }[] = [];
@@ -63,7 +64,7 @@ export class BluRig {
   constructor() {
     const R = 0.56, H = 1.45, LEG = 0.8;
     const blue = toon(0x1f7bff), rim = toon(0x7fd4ff), navy = toon(0x17306a), white = toon(0xffffff), silver = toon(0xcfdcec), shoe = toon(0x1c5fe6);
-    this.bodyMat = blue as THREE.MeshToonMaterial;
+    this.bodyMat = blue as THREE.MeshToonMaterial;this.shoeMat=shoe as THREE.MeshToonMaterial;this.gloveMat=toon(0xffffff) as THREE.MeshToonMaterial;this.disposables.push(this.gloveMat);
     this.disposables.push(blue, rim, navy, white, silver, shoe, this.outlineMat);
     const add = (geo: THREE.BufferGeometry, mat: THREE.Material, parent: THREE.Object3D, ink = 0.022) => {
       const m = new THREE.Mesh(geo, mat); parent.add(m); this.disposables.push(geo);
@@ -134,8 +135,8 @@ export class BluRig {
       const lo = add(new THREE.CapsuleGeometry(0.08, 0.18, 4, 10), navy, elbow); lo.position.y = -0.15;
       const hand = new THREE.Group(); hand.position.y = -0.33; elbow.add(hand);
       const cuff = add(new THREE.TorusGeometry(0.1, 0.045, 8, 20), rim, hand, 0.015); cuff.rotation.x = Math.PI / 2; cuff.position.y = 0.04;
-      const glove = add(new THREE.SphereGeometry(0.165, 20, 14), white, hand, 0.022); glove.position.y = -0.1; glove.scale.set(1, 0.95, 0.9);
-      const thumb = add(new THREE.CapsuleGeometry(0.05, 0.08, 4, 8), white, hand, 0.016); thumb.position.set(-s * 0.06, -0.04, 0.12); thumb.rotation.x = -0.5;
+      const glove = add(new THREE.SphereGeometry(0.165, 20, 14), this.gloveMat, hand, 0.022); glove.position.y = -0.1; glove.scale.set(1, 0.95, 0.9);
+      const thumb = add(new THREE.CapsuleGeometry(0.05, 0.08, 4, 8), this.gloveMat, hand, 0.016); thumb.position.set(-s * 0.06, -0.04, 0.12); thumb.rotation.x = -0.5;
       this.arms.push({ shoulder, elbow, hand, side: s });
     }
     // Legs and sneakers
@@ -156,6 +157,12 @@ export class BluRig {
     // Blob shadow (cheap, reads well on phones)
     const shadowMat = new THREE.MeshBasicMaterial({ color: 0x1a0f3a, transparent: true, opacity: 0.35, depthWrite: false }); this.disposables.push(shadowMat);
     const shadow = add(new THREE.CircleGeometry(0.62, 24), shadowMat, this.root, 0); shadow.rotation.x = -Math.PI / 2; shadow.position.y = 0.02; shadow.name = 'shadow';
+  }
+
+  setEquipment(p: {skin:string;inventory:string[]}) {
+    const look=p.skin+p.inventory.join();if(look===this.lastLook)return;this.lastLook=look;
+    this.bodyMat.color.setHex(p.skin==="gold"?0xffc84a:p.skin==="neon"?0x3fffc8:p.inventory.includes("battery")?0x91b9dd:0x1f7bff);
+    this.shoeMat.color.setHex(p.inventory.includes("shoes")?0xff664f:0x1c5fe6);this.gloveMat.color.setHex(p.inventory.includes("gloves")?0xffcf45:0xffffff);
   }
 
   setEnergy(energy: number) {
@@ -252,3 +259,4 @@ export class BluRig {
 
   dispose() { this.disposables.forEach(d => d.dispose()); this.root.removeFromParent(); }
 }
+
