@@ -21,10 +21,11 @@ export async function POST(request:NextRequest){try{
  const revision=row.city_revision||0;
  if(body.action==='open')return reply({progress,revision,account:who.id,paymentsReady:!!process.env.TELEGRAM_WEBHOOK_SECRET&&process.env.BLU_PAYMENTS_ENABLED==='true'});
  if(body.action!=='command'||!body.command||typeof body.command.type!=='string')return reply({code:'INVALID_COMMAND'},400);
+ if(typeof body.commandId!=='string'||!/^[a-f0-9-]{36}$/.test(body.commandId))return reply({code:'INVALID_COMMAND_ID'},400);
  if(body.revision!==revision)return reply({code:'CONFLICT',progress,revision},409);
- const command=body.command as GameCommand;const next=applyCommand(progress,command);if(next===progress)return reply({progress,revision,account:who.id});
- const {data:updated,error:saveError}=await db.from('blu_players').update({city_save:next,city_revision:revision+1}).eq('telegram_id',who.id).eq('city_revision',revision).select('city_revision').maybeSingle();
- if(saveError)return reply({code:'SAVE_UNAVAILABLE'},503);if(!updated)return reply({code:'CONFLICT',...(await load(db,who.id))},409);
- return reply({progress:next,revision:revision+1,account:who.id});
+ const command=body.command as GameCommand;const next=applyCommand(progress,command);
+ const {data:saved,error:saveError}=await db.rpc('blu_store_command',{p_user:who.id,p_revision:revision,p_command:body.commandId,p_save:next});
+ if(saveError)return reply({code:saveError.code==='PGRST202'?'MIGRATION_REQUIRED':'SAVE_UNAVAILABLE'},503);
+ if(saved.code==='CONFLICT')return reply({code:'CONFLICT',progress:parseLevelProgress(JSON.stringify(saved.progress)),revision:saved.revision},409);
+ return reply({progress:parseLevelProgress(JSON.stringify(saved.progress)),revision:saved.revision,account:who.id});
  }catch{return reply({code:'INVALID_REQUEST'},400);}}
-async function load(db:ReturnType<typeof database>,id:string){const{data}=await db.from('blu_players').select('city_save,city_revision').eq('telegram_id',id).single();return{progress:data?.city_save,revision:data?.city_revision};}

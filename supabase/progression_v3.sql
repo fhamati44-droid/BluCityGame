@@ -30,3 +30,27 @@ end;$$;
 revoke all on function public.blu_credit_coin_order(uuid,bigint,text,integer,text) from public,anon,authenticated;
 grant execute on function public.blu_credit_coin_order(uuid,bigint,text,integer,text) to service_role;
 commit;
+
+begin;
+create table if not exists public.blu_command_receipts(command_id uuid primary key,telegram_id bigint not null references public.blu_players(telegram_id),created_at timestamptz not null default now());
+alter table public.blu_command_receipts enable row level security;
+revoke all on public.blu_command_receipts from anon,authenticated;
+create or replace function public.blu_store_command(p_user bigint,p_revision integer,p_command uuid,p_save jsonb) returns jsonb language plpgsql security definer set search_path=public as $$
+declare p public.blu_players%rowtype;receipt_user bigint;
+begin
+ select * into p from public.blu_players where telegram_id=p_user for update;
+ if not found then raise exception 'unknown player';end if;
+ select telegram_id into receipt_user from public.blu_command_receipts where command_id=p_command;
+ if found then
+   if receipt_user<>p_user then raise exception 'invalid command';end if;
+   return jsonb_build_object('progress',p.city_save,'revision',p.city_revision);
+ end if;
+ if p.city_revision<>p_revision then return jsonb_build_object('code','CONFLICT','progress',p.city_save,'revision',p.city_revision);end if;
+ if p_save is null or jsonb_typeof(p_save)<>'object' then raise exception 'invalid save';end if;
+ insert into public.blu_command_receipts(command_id,telegram_id) values(p_command,p_user);
+ update public.blu_players set city_save=p_save,city_revision=city_revision+1 where telegram_id=p_user;
+ return jsonb_build_object('progress',p_save,'revision',p_revision+1);
+end;$$;
+revoke all on function public.blu_store_command(bigint,integer,uuid,jsonb) from public,anon,authenticated;
+grant execute on function public.blu_store_command(bigint,integer,uuid,jsonb) to service_role;
+commit;
