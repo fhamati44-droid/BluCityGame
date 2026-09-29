@@ -14,6 +14,8 @@ export type LevelProgress = {
   coins: number;
   blu: number;
   dashLevel: number;
+  lastDaily: string | null;
+  dailyDay: number;
   claimed: LevelId[];
 };
 
@@ -34,6 +36,8 @@ export function parseLevelProgress(raw: string | null): LevelProgress {
     coins: Number.isSafeInteger(data.coins) && Number(data.coins) >= 0 ? Math.min(Number(data.coins), 1_000_000) : 0,
     blu: Number.isSafeInteger(data.blu) && Number(data.blu) >= 0 ? Math.min(Number(data.blu), 100_000) : 0,
     dashLevel: Number.isSafeInteger(data.dashLevel) && Number(data.dashLevel) >= 0 ? Math.min(Number(data.dashLevel), 3) : 0,
+    lastDaily: typeof data.lastDaily === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(data.lastDaily) ? data.lastDaily : null,
+    dailyDay: Number.isSafeInteger(data.dailyDay) && Number(data.dailyDay) >= 0 ? Math.min(Number(data.dailyDay), 7) : 0,
     claimed: [...new Set(claimed)],
   };
 }
@@ -52,4 +56,17 @@ export function exchangeCoins(progress: LevelProgress): LevelProgress {
 }
 export function upgradeDash(progress: LevelProgress): LevelProgress {
   return progress.blu >= DASH_COST_BLU && progress.dashLevel < 3 ? { ...progress, blu: progress.blu - DASH_COST_BLU, dashLevel: progress.dashLevel + 1 } : progress;
+}
+
+export const DAILY_COINS = [20, 30, 40, 50, 60, 80, 100] as const;
+export function dailyState(progress: LevelProgress, now = Date.now()) {
+  const today = new Date(now).toISOString().slice(0, 10);
+  const yesterday = new Date(now - 86400000).toISOString().slice(0, 10);
+  const claimed = progress.lastDaily === today;
+  const day = claimed ? Math.max(1, progress.dailyDay) : progress.lastDaily === yesterday ? progress.dailyDay % 7 + 1 : 1;
+  return { today, day, claimed, reward: DAILY_COINS[day - 1] };
+}
+export function claimDailyReward(progress: LevelProgress, now = Date.now()): LevelProgress {
+  const daily = dailyState(progress, now);
+  return daily.claimed ? progress : { ...progress, coins: progress.coins + daily.reward, lastDaily: daily.today, dailyDay: daily.day };
 }

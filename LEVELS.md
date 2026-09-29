@@ -7,3 +7,11 @@ The checkpoint `blu_central_grid_v1` migrates older saves and stores objectives,
 Before enabling paid upgrades or a persistent cross-device economy, build a server-authoritative ledger keyed to verified Telegram identity, idempotent mission claims, fraud controls and payment processing. The existing `blu_players.level` field is an upgrade tier; it is separate from these playable mission level IDs. Keep the existing Supabase mission/upgrade endpoints separate until a migration has been reviewed and applied.
 
 Additional districts can use the same structure: stable level ID, unlock prerequisite, objectives, world consequence, one-time reward, and checkpoint. Add a new mission only after its playable scene and completion criteria exist.
+
+## Game hub
+
+The opening screen is now a mobile game hub with Home, Missions, BLU upgrades, Friends, and Profile. It reads the same checkpoint as the 3D city; returning from the city reloads the saved mission and balance state. The city renderer is loaded only when entering gameplay. The hub offers the same Coin-to-BLU exchange and dash upgrade as the pause overlay.
+
+Daily rewards are local-only: 20/30/40/50/60/80/100 Coin across seven consecutive UTC calendar days. One claim is allowed per date; missing a day restarts at Day 1 and finishing Day 7 wraps to Day 1. Checkpoint parsing preserves `lastDaily` and `dailyDay` when the game saves. Client clocks and local storage can be edited; these rewards are not appropriate for real-money purchases.
+
+Achievements derive from actual local mission completion and dash upgrade state. Leaderboards, multiplayer races, skins, and paid purchases are explicitly planned features, not live systems. Supabase schema and API behavior are unchanged by this UI update.

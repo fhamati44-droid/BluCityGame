@@ -3,12 +3,10 @@
 import Image from 'next/image';
 import dynamic from 'next/dynamic';
 import { useEffect, useState } from 'react';
-import type { Place } from './components/CityWorld';
-const CityWorld = dynamic(() => import('./components/CityWorld'), { ssr: false, loading: () => <div className="city-world city-loading" aria-hidden="true">✦</div> });
+import GameHub from './components/GameHub';
 const PlayableCity = dynamic(() => import('./components/PlayableCity'), { ssr: false, loading: () => <div className="play-boot">POWERING UP BLU CITY…</div> });
 
 type Lang = 'en' | 'he' | 'ar';
-type Tab = 'home' | 'tasks' | 'city' | 'friends' | 'profile';
 type Action = 'mission' | 'charge' | 'upgrade' | 'district';
 type Player = { sparks: number; charge: number; level: number; district: number; missions: number; lastCharge: string | null; lastMission: string | null; referrals: number };
 type Tg = { initData: string; initDataUnsafe?: { user?: { id: number; first_name?: string; username?: string; language_code?: string } }; ready: () => void; expand: () => void; HapticFeedback?: { impactOccurred: (s: string) => void }; BackButton?: { show: () => void; hide: () => void; onClick: (fn: () => void) => void; offClick: (fn: () => void) => void } };
@@ -23,11 +21,6 @@ const words = {
 
 type Copy = { [K in keyof typeof words.en]: string };
 function fill(template: string, n: number) { return template.replace('{n}', String(n)); }
-const worldWords = {
-  en: { title: 'Explore BLU City', hint: 'Drag to turn the city. Tap a building to visit it.', enter: 'Enter the city', visit: 'Visit location', districtInfo: 'Each unlocked district lights up more buildings.', journey: 'YOUR WORLD IS ALIVE' },
-  he: { title: 'גלו את העיר של BLU', hint: 'גרור כדי להסתובב בעיר. לחץ על מבנה כדי לבקר בו.', enter: 'היכנס לעיר', visit: 'בקר במקום', districtInfo: 'כל אזור שנפתח מדליק עוד מבנים בעיר.', journey: 'העולם שלך מתעורר' },
-  ar: { title: 'اكتشف مدينة BLU', hint: 'اسحب عشان تلف بالمدينة. اضغط على مبنى لتزوره.', enter: 'ادخل المدينة', visit: 'زور المكان', districtInfo: 'كل منطقة جديدة بتنور مباني أكثر بالمدينة.', journey: 'عالمك صار حيّ' },
-} as const;
 function remaining(time: string | null, hours: number, now: number) { if (!time) return 0; return Math.max(0, Math.ceil((new Date(time).getTime() + hours * 3600000 - now) / 60000)); }
 function Icon({ name, size = 22 }: { name: string; size?: number }) {
   const common = { width: size, height: size, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.9, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const, 'aria-hidden': true as const };
@@ -46,16 +39,12 @@ function Icon({ name, size = 22 }: { name: string; size?: number }) {
   };
   return <svg {...common}>{paths[name] || paths.spark}</svg>;
 }
-function EnergyBar({ value }: { value: number }) { return <div className="energy-track" role="progressbar" aria-label="Energy" aria-valuenow={value} aria-valuemin={0} aria-valuemax={100}><div className="energy-fill" style={{ width: `${Math.max(0, Math.min(100, value))}%` }}/></div>; }
 function GameButton({ children, onClick, disabled = false, secondary = false }: { children: React.ReactNode; onClick: () => void; disabled?: boolean; secondary?: boolean }) { return <button className={`game-button ${secondary ? 'secondary' : ''}`} onClick={onClick} disabled={disabled}>{children}<Icon name="arrow" size={18}/></button>; }
-function SectionLabel({ children }: { children: React.ReactNode }) { return <p className="section-label">{children}</p>; }
 function BLUCharacter({ low = false, celebrate = false }: { low?: boolean; celebrate?: boolean }) { return <div className={`blu-character ${low ? 'is-low' : ''} ${celebrate ? 'celebrate' : ''}`}><span className="character-halo"/><span className="orbit orbit-one"/><span className="orbit orbit-two"/><Image src="/blu.webp" alt="BLU, the blue battery character" width={380} height={380} priority /></div>; }
-function ActionCard({ icon, tint, title, description, detail, children }: { icon: string; tint: string; title: string; description: string; detail?: string; children: React.ReactNode }) { return <article className="action-card"><div className={`action-icon ${tint}`}><Icon name={icon} size={25}/></div><div className="action-info"><h3>{title}</h3><p>{description}</p>{detail && <span className="action-detail">{detail}</span>}</div>{children}</article>; }
-function Navigation({ tab, select, t }: { tab: Tab; select: (tab: Tab) => void; t: Copy }) { const entries: { id: Tab; icon: string; label: string }[] = [{ id: 'home', icon: 'home', label: t.home }, { id: 'tasks', icon: 'tasks', label: t.tasks }, { id: 'city', icon: 'city', label: t.city }, { id: 'friends', icon: 'friends', label: t.friends }, { id: 'profile', icon: 'profile', label: t.profile }]; return <nav className="bottom-nav" aria-label="Game navigation">{entries.map(item => <button key={item.id} className={tab === item.id ? 'selected' : ''} aria-current={tab === item.id ? 'page' : undefined} onClick={() => select(item.id)}><Icon name={item.icon}/><span>{item.label}</span></button>)}</nav>; }
 
 export default function Home() {
   const [connectionCode, setConnectionCode] = useState('');
-  const [lang, setLang] = useState<Lang>('en'); const [player, setPlayer] = useState<Player>(initial); const [tab, setTab] = useState<Tab>('home'); const [place, setPlace] = useState<Place | null>(null); const [mode, setMode] = useState<'loading' | 'live' | 'demo' | 'error'>('loading'); const [busy, setBusy] = useState(false); const [message, setMessage] = useState(''); const [tick, setTick] = useState(0); const [telegram, setTelegram] = useState<Tg | null>(null); const [celebrate, setCelebrate] = useState(false); const [playing, setPlaying] = useState(true);
+  const [lang, setLang] = useState<Lang>('en'); const [player, setPlayer] = useState<Player>(initial); const [mode, setMode] = useState<'loading' | 'live' | 'demo' | 'error'>('loading'); const [busy, setBusy] = useState(false); const [message, setMessage] = useState(''); const [tick, setTick] = useState(0); const [telegram, setTelegram] = useState<Tg | null>(null); const [celebrate, setCelebrate] = useState(false); const [playing, setPlaying] = useState(false);
   const t: Copy = words[lang]; const rtl = lang !== 'en';
   useEffect(() => {
     const tg = window.Telegram?.WebApp || null; setTelegram(tg); tg?.ready(); tg?.expand();
@@ -74,8 +63,13 @@ export default function Home() {
     } else { try { const saved = localStorage.getItem('blu_demo'); if (saved) setPlayer(JSON.parse(saved)); } catch {} setMode('demo'); }
     const timer = setInterval(() => setTick(Date.now()), 30000); setTick(Date.now()); return () => clearInterval(timer);
   }, []);
-  useEffect(() => { const back = telegram?.BackButton; if (!back) return; const onBack = () => setTab('home'); if (tab === 'home') back.hide(); else { back.show(); back.onClick(onBack); } return () => { if (tab !== 'home') back.offClick(onBack); }; }, [tab, telegram]);
+
   useEffect(() => { if (!message) return; const timer = setTimeout(() => setMessage(''), 4200); return () => clearTimeout(timer); }, [message]);
+  useEffect(() => {
+    const back = telegram?.BackButton; if (!back || !playing) return;
+    const leaveCity = () => setPlaying(false); back.show(); back.onClick(leaveCity);
+    return () => { back.offClick(leaveCity); back.hide(); };
+  }, [playing, telegram]);
   async function act(action: Action) {
     if (busy || mode === 'error' || mode === 'loading') return; setBusy(true); setMessage(''); let response: { message: string; player: Player } | null = null;
     try {
@@ -85,37 +79,13 @@ export default function Home() {
     } catch { setMessage(t.offline); } finally { setBusy(false); setTick(Date.now()); }
   }
   const chargeWait = remaining(player.lastCharge, 3, tick), missionWait = remaining(player.lastMission, 1, tick);
-  const missionReward = 30 + 5 * (player.level - 1), upgradeCost = 80 * player.level, districtCost = 100 * player.district;
   const invite = telegram?.initDataUnsafe?.user?.id ? `https://t.me/${process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME || 'BluCityGame_bot'}?startapp=ref_${telegram.initDataUnsafe.user.id}` : '';
   async function share(copyOnly = false) { if (!invite) { setMessage(t.notReady); return; } try { if (!copyOnly && navigator.share) await navigator.share({ title: t.shareTitle, url: invite }); else { await navigator.clipboard.writeText(invite); setMessage(t.copied); } } catch { /* A cancelled share leaves the page unchanged. */ } }
-  const select = (next: Tab) => { setTab(next); window.scrollTo({ top: 0, behavior: 'smooth' }); };
   const playerName = telegram?.initDataUnsafe?.user?.first_name || 'BLU';
-  const energyText = player.charge >= 100 ? t.energyFull : player.charge < 20 ? t.energyLow : t.energyNormal;
-  const world = worldWords[lang];
-  const placeLabels = { mission: t.mission, charge: t.recharge, upgrade: t.upgrade, district: t.unlock };
-  const placeDescriptions = { mission: t.missionDesc, charge: t.rechargeDesc, upgrade: t.upgradeDesc, district: world.districtInfo };
-  const placeButton = place === 'mission' ? t.run : place === 'charge' ? t.collect : place === 'upgrade' ? t.upgradeAction : t.unlock;
-  const placeDisabled = busy || (place === 'charge' && (!!chargeWait || player.charge >= 100)) || (place === 'upgrade' && (player.level >= 100 || player.sparks < upgradeCost)) || (place === 'district' && (player.district >= 20 || player.sparks < districtCost));
-  return <main className="game-shell" lang={lang} dir={rtl ? 'rtl' : 'ltr'}>
-    <div className="background-stars" aria-hidden="true"/>
-    <header className="topbar"><div className="logo-lockup"><span className="logo-mark"><Icon name="bolt" size={24}/></span><div><strong>BLU<span className="logo-dot">.</span></strong><small>{t.cityName}</small></div></div><div className="topbar-right"><span className="level-chip"><Icon name="spark" size={13}/> {t.level} {player.level}</span><select className="language-select" aria-label={t.language} value={lang} onChange={e => setLang(e.target.value as Lang)}><option value="en">EN</option><option value="he">עב</option><option value="ar">عر</option></select></div></header>
-    {mode === 'loading' ? <div className="loading-state" role="status"><div className="loading-battery"><Icon name="bolt" size={36}/></div><p>{t.loading}</p><div className="loading-line"/></div> : mode === 'error' ? <section className="error-state" role="alert"><BLUCharacter low/><h1>{t.connectionError}</h1>{connectionCode && <p dir="ltr" style={{ textAlign: 'center', fontFamily: 'monospace', fontSize: 14, overflowWrap: 'anywhere' }}>BLU: {connectionCode}</p>}<GameButton onClick={() => window.location.reload()}>{t.retry}</GameButton></section> : playing ? <PlayableCity lang={lang} onMenu={() => setPlaying(false)} serverRestored={false} onReward={() => { if (!busy && !missionWait && player.charge >= 10) void act('mission'); }} /> : <>
-      <button className="return-to-game" onClick={() => setPlaying(true)}>▶ {lang === 'he' ? 'חזור למשחק' : lang === 'ar' ? 'ارجع للعبة' : 'RETURN TO GAME'}</button>
-      <div className={`mode-strip ${mode}`}><span className="mode-dot"/>{mode === 'live' ? t.live : t.demo}</div>
-      {tab === 'home' && <><section className="world-intro"><div><SectionLabel>{world.journey}</SectionLabel><h1>{world.title}</h1><p>{world.hint}</p></div><div className="world-blu"><Image src="/blu.webp" alt="BLU" width={112} height={112} priority/></div></section>
-        <CityWorld district={player.district} labels={placeLabels} selected={place} onSelect={setPlace} compact/>
-        {place && <div className="world-place-card"><div><span className="place-eyebrow">{world.visit}</span><h2>{placeLabels[place]}</h2><p>{placeDescriptions[place]}</p></div><GameButton onClick={() => place === 'mission' ? setPlaying(true) : void act(place)} disabled={placeDisabled}>{placeButton}</GameButton></div>}
-        <div className="resource-row"><div className="resource"><span className="resource-icon gold"><Icon name="spark" size={18}/></span><div><small>{t.sparks}</small><strong>{player.sparks.toLocaleString()}</strong></div></div><div className="resource"><span className="resource-icon blue"><Icon name="bolt" size={18}/></span><div><small>{t.energy}</small><strong>{player.charge}<em>/100</em></strong></div></div></div>
-        <section className="energy-panel"><div className="energy-heading"><div><span className="panel-kicker">{t.energyTitle}</span><h2>{energyText}</h2></div><span className="energy-number">{player.charge}%</span></div><EnergyBar value={player.charge}/><span className="energy-caption"><Icon name="bolt" size={14}/>{player.charge < 10 ? t.energyLow : t.ready}</span></section>
-        <SectionLabel>{t.today}</SectionLabel><article className="mission-feature"><div className="mission-art"><Icon name="bolt" size={40}/><span>✦</span></div><div className="mission-copy"><span className="reward-badge"><Icon name="spark" size={15}/>{fill(t.missionReward, missionReward)}</span><h2>{t.mission}</h2><p>{t.missionDesc} <span>{t.missionCost}</span></p><GameButton onClick={() => setPlaying(true)} disabled={busy}>{t.run}</GameButton></div></article>
-        <SectionLabel>{t.quickActions}</SectionLabel><div className="quick-grid"><button className="quick-card" onClick={() => select('tasks')}><span className="quick-icon cyan"><Icon name="bolt"/></span><strong>{t.recharge}</strong><small>{chargeWait ? fill(t.nextIn, chargeWait) : `+30 ${t.energy}`}</small></button><button className="quick-card" onClick={() => select('tasks')}><span className="quick-icon purple"><Icon name="spark"/></span><strong>{t.upgrade}</strong><small>{upgradeCost} {t.sparks}</small></button></div>
-        <section className="world-teaser"><div><SectionLabel>{t.explore}</SectionLabel><h2>{t.cityTitle}</h2><p>{player.district}/20 {t.lit}</p></div><button aria-label={t.city} onClick={() => select('city')}><Icon name="arrow"/></button></section></>}
-      {tab === 'tasks' && <section className="screen-content"><SectionLabel>{t.today}</SectionLabel><h1 className="screen-title">{t.tasks}</h1><p className="screen-lead">{t.heroText}</p><ActionCard icon="bolt" tint="amber" title={t.mission} description={t.missionDesc} detail={`${t.missionCost} · ${fill(t.missionReward, missionReward)}`}><GameButton onClick={() => setPlaying(true)} disabled={busy}>{t.run}</GameButton></ActionCard><ActionCard icon="bolt" tint="cyan" title={t.recharge} description={t.rechargeDesc} detail={`+30 ${t.energy}`}><GameButton onClick={() => act('charge')} disabled={busy || !!chargeWait || player.charge >= 100} secondary>{chargeWait ? fill(t.nextIn, chargeWait) : t.collect}</GameButton></ActionCard><SectionLabel>{t.quickActions}</SectionLabel><ActionCard icon="spark" tint="purple" title={t.upgrade} description={t.upgradeDesc} detail={`${t.nextLevel}: ${Math.min(player.level + 1, 100)} · ${t.moreEach}`}><GameButton onClick={() => act('upgrade')} disabled={busy || player.level >= 100 || player.sparks < upgradeCost} secondary>{t.upgradeAction} · {upgradeCost} ✦</GameButton></ActionCard></section>}
-      {tab === 'city' && <section className="screen-content"><SectionLabel>{t.explore}</SectionLabel><h1 className="screen-title">{t.cityTitle}</h1><p className="screen-lead">{world.hint}</p><CityWorld district={player.district} labels={placeLabels} selected={place} onSelect={setPlace}/>{place && <div className="world-place-card"><div><span className="place-eyebrow">{world.visit}</span><h2>{placeLabels[place]}</h2><p>{placeDescriptions[place]}</p></div><GameButton onClick={() => place === 'mission' ? setPlaying(true) : void act(place)} disabled={placeDisabled}>{placeButton}</GameButton></div>}<div className="city-overview"><div><strong>{player.district}<span>/20</span></strong><small>{t.lit}</small></div><span className="city-orb"><Icon name="city" size={54}/></span></div><ActionCard icon="bolt" tint="cyan" title={t.unlock} description={player.district >= 20 ? t.maxCity : world.districtInfo} detail={`${t.cost}: ${districtCost} ${t.sparks}`}><GameButton onClick={() => act('district')} disabled={busy || player.district >= 20 || player.sparks < districtCost}>{t.unlock}</GameButton></ActionCard></section>}
-      {tab === 'friends' && <section className="screen-content"><SectionLabel>{t.friends}</SectionLabel><h1 className="screen-title">{t.friendsTitle}</h1><p className="screen-lead">{t.friendsDesc}</p><div className="friends-stage"><span className="friend-orbit a">✦</span><span className="friend-orbit b">✦</span><BLUCharacter celebrate={celebrate}/><div className="friend-bubble"><Icon name="friends" size={26}/></div></div><div className="referral-stat"><Icon name="friends"/><div><small>{t.invited}</small><strong>{player.referrals}</strong></div></div><div className="invite-actions"><GameButton onClick={() => share()}>{t.invite}</GameButton>{invite ? <GameButton onClick={() => share(true)} secondary>{t.copy}</GameButton> : <p className="muted-hint">{t.referralHint}</p>}</div></section>}
-      {tab === 'profile' && <section className="screen-content"><SectionLabel>{t.profile}</SectionLabel><h1 className="screen-title">{t.profileTitle}</h1><div className="profile-card"><div className="profile-avatar">{playerName.slice(0, 1).toUpperCase()}</div><div><h2>{playerName}</h2><span>{t.member} · {t.level} {player.level}</span></div></div><div className="profile-grid"><div><Icon name="tasks"/><strong>{player.missions}</strong><small>{t.totalMissions}</small></div><div><Icon name="city"/><strong>{player.district}/20</strong><small>{t.cityProgress}</small></div><div><Icon name="spark"/><strong>{player.sparks}</strong><small>{t.sparks}</small></div><div><Icon name="friends"/><strong>{player.referrals}</strong><small>{t.invited}</small></div></div><div className="coming-card"><span className="quick-icon purple"><Icon name="gift"/></span><div><h3>{t.coming}</h3><p>{t.comingDesc}</p></div></div><GameButton onClick={() => select('home')} secondary>{t.backHome}</GameButton></section>}
-      <p className="legal-note">{t.gameOnly}</p><Navigation tab={tab} select={select} t={t}/>
-    </>}
-    {message && <div className="toast" role="status" onClick={() => setMessage('')}><Icon name="spark" size={18}/>{message}</div>}
+  return <main className="game-shell premium-shell" lang={lang} dir={rtl ? 'rtl' : 'ltr'}>
+    <div className="background-stars" aria-hidden="true" />
+    <header className="topbar"><div className="logo-lockup"><span className="logo-mark"><Icon name="bolt" size={24} /></span><div><strong>BLU<span className="logo-dot">.</span></strong><small>CITY OF ENERGY</small></div></div><div className="topbar-right"><select className="language-select" aria-label={t.language} value={lang} onChange={e => setLang(e.target.value as Lang)}><option value="en">EN</option><option value="he">עברית</option><option value="ar">عربي</option></select></div></header>
+    {mode === 'loading' ? <div className="loading-state" role="status"><div className="loading-battery"><Icon name="bolt" size={36} /></div><p>{t.loading}</p><div className="loading-line" /></div> : mode === 'error' ? <section className="error-state" role="alert"><BLUCharacter low /><h1>{t.connectionError}</h1>{connectionCode && <p dir="ltr" style={{ textAlign: 'center', fontFamily: 'monospace', fontSize: 14, overflowWrap: 'anywhere' }}>BLU: {connectionCode}</p>}<GameButton onClick={() => window.location.reload()}>{t.retry}</GameButton></section> : playing ? <PlayableCity lang={lang} onMenu={() => setPlaying(false)} serverRestored={false} onReward={() => { if (!busy && !missionWait && player.charge >= 10) void act('mission'); }} /> : <GameHub lang={lang} name={playerName} username={telegram?.initDataUnsafe?.user?.username} live={mode === 'live'} player={player} busy={busy} chargeWait={chargeWait} onPlay={() => setPlaying(true)} onShare={share} onCharge={() => { void act('charge'); }} backButton={telegram?.BackButton} />}
+    {message && <div className="toast" role="status" onClick={() => setMessage('')}><Icon name="spark" size={18} />{message}</div>}
   </main>;
 }
