@@ -1,4 +1,9 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
+import { Rubik } from 'next/font/google';
 import './styles.css';
+
+// Rubik covers Latin, Hebrew and Arabic with heavy rounded weights, so all three languages share one game voice.
+const rubik = Rubik({ subsets: ['latin', 'hebrew', 'arabic'], weight: ['700', '800', '900'], variable: '--font-rubik', display: 'swap' });
 export const metadata: Metadata = { title: 'BLU | City of Energy', description: 'Charge BLU. Light the city.' };
-export default function RootLayout({ children }: Readonly<{children: React.ReactNode}>) { return <html lang="en"><head><script src="https://telegram.org/js/telegram-web-app.js" defer /></head><body>{children}</body></html>; }
+export const viewport: Viewport = { width: 'device-width', initialScale: 1, viewportFit: 'cover', themeColor: '#4a63ff' };
+export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) { return <html lang="en" className={rubik.variable}><head><script src="https://telegram.org/js/telegram-web-app.js" defer /></head><body>{children}</body></html>; }
