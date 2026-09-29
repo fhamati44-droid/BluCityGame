@@ -5,6 +5,33 @@ import * as THREE from 'three';
 
 export type Place = 'mission' | 'charge' | 'upgrade' | 'district';
 export type PlaceLabels = Record<Place, string>;
+function CityFallback({ labels, selected, onSelect }: { labels: PlaceLabels; selected: Place | null; onSelect: (place: Place) => void }) {
+  const building = (id: Place, x: number, y: number, height: number, color: string) => <g key={id} className={`city-svg-place ${selected === id ? 'selected' : ''}`} role="button" tabIndex={0} aria-label={labels[id]} onClick={() => onSelect(id)} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelect(id); } }}>
+    <ellipse cx={x} cy={y + 12} rx="62" ry="19" fill={color} opacity=".17" />
+    <path d={`M${x-42} ${y-9}l42-23 42 23-42 24z`} fill="#315c82" stroke={color} strokeWidth="2" />
+    <path d={`M${x-42} ${y-9}v${-height}l42-23v${height}z`} fill="#173c67" stroke={color} strokeOpacity=".55" />
+    <path d={`M${x} ${y-32}v${-height}l42 23v${height}z`} fill="#245180" stroke={color} strokeOpacity=".7" />
+    <path d={`M${x-42} ${y-9-height}l42-23 42 23-42 24z`} fill="#3a74a2" stroke={color} strokeWidth="2" />
+    {[-1, 0, 1].map((row) => <g key={row}><path d={`M${x-29} ${y-16-height/2+row*15}l11-6m8 1l11-6`} stroke={color} strokeWidth="3" strokeLinecap="round" opacity=".9" /><path d={`M${x+11} ${y-27-height/2+row*15}l10 5m6 3l9 5`} stroke={color} strokeWidth="3" strokeLinecap="round" opacity=".9" /></g>)}
+    <text x={x} y={y-height-61} textAnchor="middle" fill="#f3fbff" stroke="#092344" strokeWidth="3" paintOrder="stroke" fontSize="13" fontWeight="800">{labels[id]}</text>
+  </g>;
+  return <svg className="city-fallback-map" viewBox="0 0 520 395" role="img" aria-label="BLU City map">
+    <defs><radialGradient id="citySky"><stop stopColor="#287aab"/><stop offset="1" stopColor="#09203f"/></radialGradient><linearGradient id="cityLand" x2="1" y2="1"><stop stopColor="#306486"/><stop offset="1" stopColor="#102f57"/></linearGradient><filter id="cityGlow"><feGaussianBlur stdDeviation="7"/></filter></defs>
+    <rect width="520" height="395" fill="url(#citySky)"/>
+    <circle cx="260" cy="180" r="122" fill="#3aaef1" opacity=".12" filter="url(#cityGlow)"/>
+    {Array.from({length: 18}, (_, i) => <circle key={i} cx={19 + (i * 113) % 483} cy={17 + (i * 67) % 185} r={i % 4 === 0 ? 2 : 1} fill="#b3efff" opacity=".6"/>)}
+    <path d="M260 85L510 213 260 381 10 213Z" fill="url(#cityLand)" stroke="#67cfff" strokeWidth="3"/>
+    <path d="M120 149L397 293M394 150L118 294" stroke="#0b2548" strokeWidth="46"/>
+    <path d="M120 149L397 293M394 150L118 294" stroke="#70dbff" strokeWidth="2" strokeDasharray="12 15" opacity=".75"/>
+    <path d="M260 85L510 213 260 381 10 213Z" fill="none" stroke="#5fcfff" strokeWidth="3"/>
+    <g opacity=".9"><path d="M68 208l22-13 22 13-22 13zM388 203l22-13 22 13-22 13zM234 326l22-13 22 13-22 13z" fill="#45a077" stroke="#83efb7" strokeWidth="2"/><path d="M90 199v-30m320 25v-30m-154 154v-25" stroke="#80efc4" strokeWidth="8" strokeLinecap="round"/></g>
+    {building('mission', 139, 223, 57, '#ffce78')}
+    {building('upgrade', 382, 224, 63, '#b99aff')}
+    {building('district', 260, 320, 40, '#77f7bf')}
+    {building('charge', 260, 189, 91, '#65eaff')}
+    <path d="M260 39v-29" stroke="#80eeff" strokeWidth="5" strokeLinecap="round"/><circle cx="260" cy="8" r="6" fill="#b8ffff"/>
+  </svg>;
+}
 const places: { id: Place; x: number; z: number; color: number }[] = [
   { id: 'mission', x: -5.1, z: 0.8, color: 0xffc574 },
   { id: 'charge', x: 0, z: -1.2, color: 0x59eaff },
@@ -99,5 +126,5 @@ export default function CityWorld({ district, labels, selected, onSelect, compac
     animate();
     return () => { active = false; cancelAnimationFrame(frame); resize.disconnect(); canvas.removeEventListener('pointerdown', onDown); canvas.removeEventListener('pointermove', onMove); canvas.removeEventListener('pointerup', onUp); canvas.removeEventListener('wheel', onWheel); scene.traverse(obj => { if (obj instanceof THREE.Mesh) { obj.geometry.dispose(); const mat = obj.material; if (Array.isArray(mat)) mat.forEach(m => m.dispose()); else mat.dispose(); } }); renderer.dispose(); canvas.remove(); };
   }, [district, compact]);
-  return <div className={`city-world ${compact ? 'compact' : ''}`}><div className="city-viewport" ref={mount}>{failed && <div className="city-fallback" aria-hidden="true">✦</div>}</div><div className="city-controls" aria-label="City locations">{places.map(place => <button key={place.id} className={selected === place.id ? 'active' : ''} onClick={() => onSelect(place.id)}><span style={{ background: `#${place.color.toString(16).padStart(6, '0')}` }}/>{labels[place.id]}</button>)}</div></div>;
+  return <div className={`city-world ${compact ? 'compact' : ''}`}><div className="city-viewport" ref={mount}>{failed && <CityFallback labels={labels} selected={selected} onSelect={onSelect} />}</div><div className="city-controls" aria-label="City locations">{places.map(place => <button key={place.id} className={selected === place.id ? 'active' : ''} onClick={() => onSelect(place.id)}><span style={{ background: `#${place.color.toString(16).padStart(6, '0')}` }}/>{labels[place.id]}</button>)}</div></div>;
 }
