@@ -25,6 +25,7 @@ begin
   on conflict (telegram_id) do nothing;
   select * into p from public.blu_players where telegram_id=p_user_id for update;
   case p_action
+    when 'open' then null;
     when 'charge' then
       if now_at < p.last_charge + interval '3 hours' then message := 'cooldown';
       else update public.blu_players set charge=least(100,charge+30),last_charge=now_at where telegram_id=p_user_id; end if;
