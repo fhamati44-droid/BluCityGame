@@ -14,7 +14,7 @@ Open `http://localhost:3000`. Outside Telegram, the app runs in clearly labeled 
 ## Supabase
 
 1. Create a project and run `supabase/schema.sql` in SQL Editor.
-2. Copy `.env.example` to `.env.local`. Fill in the Supabase project URL and **service role key**. Never expose this key as a `NEXT_PUBLIC_` variable.
+2. Copy `.env.example` to `.env.local`. The public Supabase project URL is already set to `https://jyhvsckuyvriezzqhrel.supabase.co`. Fill in the **service role key** privately. Never expose this key as a `NEXT_PUBLIC_` variable.
 3. The players table has RLS enabled and no client policy. Only the authenticated server route calls the `blu_game_action` RPC. All economy changes are performed atomically in PostgreSQL.
 
 ## Telegram
