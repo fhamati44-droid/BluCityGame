@@ -28,6 +28,8 @@ Open `http://localhost:3000`. Outside Telegram, the app runs in clearly labeled 
 
 Push this folder as a GitHub repository. Import it in Vercel as a Next.js project. Set `TELEGRAM_BOT_TOKEN`, `SUPABASE_URL`, and `SUPABASE_SERVICE_ROLE_KEY` from `.env.example`. The bot username already defaults to `BluCityGame_bot`. Deploy, then configure the HTTPS deployment URL in BotFather. Do not commit `.env.local` or any bot token.
 
+If the Vercel project is connected to GitHub but shows “No Production Deployment”, push a commit to the `main` branch to start the first production build. Verify its status under Deployments before setting the URL in BotFather.
+
 ## Product limits
 
 The game has one playable mission type and six rendered district tiles; the database supports twenty districts. It has no payments, real token, leaderboard, push reminders, or admin console yet. Referral points are awarded after three completed missions, but stronger fraud controls are needed before any economic rewards. Full commercial use of BLU as the game's name needs trademark clearance in launch countries.
