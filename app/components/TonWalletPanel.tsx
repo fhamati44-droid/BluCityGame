@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
-import { CHAIN, TonConnectUIProvider, useTonConnectUI, useTonWallet } from '@tonconnect/ui-react';
+import { CHAIN, TonConnectUIProvider, useTonConnectUI, useTonWallet, useIsConnectionRestored } from '@tonconnect/ui-react';
 import { BLU_JETTON_MASTER, TON_TESTNET } from '@/lib/ton-config';
 import { getSyncStatus, refreshProgress, useSyncStatus } from '@/lib/progress-store';
 import type { Lang } from '@/lib/levels';
@@ -18,6 +18,7 @@ async function api(body: object) {
   return data;
 }
 function Wallet({ lang }: { lang: Lang }) {
+  const restored=useIsConnectionRestored();
   const t = copy[lang], wallet = useTonWallet(), [ui] = useTonConnectUI(), sync = useSyncStatus();
   const [balance, setBalance] = useState<string | null>(null), [balanceState, setBalanceState] = useState('idle');
   const [refresh, setRefresh] = useState(0), [enabled, setEnabled] = useState<boolean | null>(null), [requests, setRequests] = useState<Withdrawal[]>([]);
@@ -63,7 +64,7 @@ function Wallet({ lang }: { lang: Lang }) {
   }
   return <section className="hub-card ton-wallet-panel" aria-label={t.title}>
     <div className="hub-card-top"><h2>{t.title}</h2><span className="hub-state">TESTNET</span></div><p>{t.test}</p>
-    {!wallet ? <button className="hub-button" onClick={() => { ui.openModal().catch(() => setMessage(t.failure)); }}>{t.connect}</button> : <>
+    {!wallet ? <button className="hub-button" disabled={!restored} onClick={() => { ui.openModal().catch(() => setMessage(t.failure)); }}>{restored?t.connect:lang==='he'?'משחזר חיבור לארנק…':lang==='ar'?'جاري استعادة اتصال المحفظة…':'Restoring wallet connection…'}</button> : <>
       <p className="ton-address" dir="ltr">{address}</p><button className="hub-button secondary" onClick={() => { ui.disconnect().catch(() => setMessage(t.failure)); }}>{t.disconnect}</button>
       {!correct ? <p role="alert">{t.wrong}</p> : <><p>{t.balance}: <strong dir="ltr">{balanceState === 'loading' ? t.loading : balance === null ? '—' : `${balance} BLU`}</strong></p>{balanceState === 'error' && <p role="alert">{t.error}</p>}<button className="hub-button secondary" disabled={balanceState === 'loading'} onClick={() => setRefresh(n => n + 1)}>{t.refresh}</button></>}
     </>}
@@ -77,5 +78,5 @@ function Wallet({ lang }: { lang: Lang }) {
 }
 export default function TonWalletPanel({ lang }: { lang: Lang }) {
   const manifestUrl = `${window.location.origin}/tonconnect-manifest.json`;
-  return <TonConnectUIProvider manifestUrl={manifestUrl}><Wallet lang={lang} /></TonConnectUIProvider>;
+  return <TonConnectUIProvider manifestUrl={manifestUrl} actionsConfiguration={{twaReturnUrl:"https://t.me/BluCityGame_bot?startapp"}}><Wallet lang={lang} /></TonConnectUIProvider>;
 }
