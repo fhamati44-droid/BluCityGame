@@ -21,7 +21,7 @@ Power shell (220): silver shell, 10-second Overcharge instead of seven.
 Charge gloves (180): golden gloves, objective charging 30% faster.
 Neon (120) / Gold (350): cosmetic shell colors, selectable alongside Classic.
 Neon boulevard (200): recolors east street and city billboards.
-Equipment is visible on the actual animated 3D rig in the city and wardrobe preview. These are material variants, not imported high-detail clothing models. Future silhouettes/clothing and additional cities remain a content expansion.
+Equipment is visible on the actual animated 3D rig in the city and wardrobe preview. These are material variants, not imported high-detail clothing models. Future silhouettes/clothing and unique mission content remain a content expansion. City levels now grow in footprint and retain purchased equipment.
 
 ## Unified save
 `lib/progress-store.ts` is the only client source of progression for Hub and City. Guest mode is local. Telegram identity is verified by server HMAC; account mode uses `/api/progress` and Supabase `blu_players.city_save` plus `city_revision`.
@@ -49,4 +49,8 @@ To activate after the SQL migration:
 
 ## Verification
 `npm run typecheck`, `node tests/progression.cjs`, `node tests/scene.cjs`.
-The CPU scene test runs the real scene update loop with actual Three geometry and a mock GPU, completing all six missions. It checks checkpoint/reward flow, roof collection and escort transitions. It injects actor positions, so it does not certify parkour route reachability, game feel, mobile FPS or GPU rendering. Real-device Telegram testing is still required. Do not claim database/payments tested before applying SQL and configuring webhook.
+The CPU scene test runs the real scene update loop with actual Three geometry and a mock GPU, completing all six missions. It checks checkpoint/reward flow, roof collection and escort transitions. It injects positions for most missions, but traverses the rooftop route and terminal using actual movement input. It also checks real character material colors. It does not certify game feel, mobile FPS or GPU rendering. Real-device Telegram testing is still required. Do not claim database/payments tested before applying SQL and configuring webhook.
+
+
+## City-level progression
+Version 4 saves separate `cityLevel` from the six mission IDs. Version 3 completion/balance/equipment data migrates automatically. Completing mission 6 marks the city restored; `next-city` clears only city objectives, completion/reward receipts and an unfinished run. Purchased gear, balances, daily streak and dash upgrades persist. Commands include their city level to prevent delayed objective commands from an earlier city applying to a new one. The new footprint scales by 15% per city up to 2.2 times; mission types currently repeat, and unique districts/story quests are future content work. The rooftop route includes walkable ramps and bridges as an alternative to bounce-pad parkour.

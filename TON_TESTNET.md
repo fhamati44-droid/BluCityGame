@@ -37,10 +37,25 @@ For a definitively unsent request, refund and change status in ONE database tran
 
 ## Limits
 
-Testnet only, no market price, no Mainnet rollout, no automatic payouts. Existing mission collection is client reported and older checkpoints can be imported. Those rewards are not sufficiently validated for monetary payouts. Mainnet requires authoritative gameplay/anti-abuse checks, approved token economics, verified wallet ownership if used for account identity, and an audited payout worker with persistent reconciliation. Do not enable Mainnet by changing one address or chain string.
+Testnet only, no market price, no Mainnet rollout. Automatic testnet payouts require the separate setup below. Existing mission collection is client reported and older checkpoints can be imported. Those rewards are not sufficiently validated for monetary payouts. Mainnet requires authoritative gameplay/anti-abuse checks, approved token economics, verified wallet ownership if used for account identity, and an audited payout worker with persistent reconciliation. Do not enable Mainnet by changing one address or chain string.
 
 ## References
 
 - https://docs.ton.org/applications/ton-connect/get-started
 - https://docs.ton.org/payments/jettons
 - https://github.com/ton-blockchain/ton-connect/blob/main/spec/connect.md
+
+
+## Automatic payouts (testnet only)
+
+Apply `supabase/ton_payouts.sql` after `ton_testnet.sql`. Use a new dedicated V4 testnet treasury, not the player's daily wallet. Put its mnemonic and matching raw address into private server variables `BLU_TESTNET_TREASURY_MNEMONIC` and `BLU_TESTNET_TREASURY_ADDRESS`. Fund it with testnet BLU and enough testnet TON for fees. Do not use this treasury for other transfers while the worker operates.
+
+Configure `CRON_SECRET` and an authenticated scheduler every 60 seconds to call `GET /api/ton/payouts`. Set `BLU_TESTNET_PAYOUTS_ENABLED=true` only after the database migration, funding and scheduler are ready. Reservation activation is independently controlled by `BLU_TESTNET_WITHDRAWALS_ENABLED`.
+
+The worker serializes the treasury queue, durably saves a single signed external message before broadcasting, and resends only that same message on retries. A reservation is confirmed only after a successful recipient Jetton wallet transaction with the expected master, sender, query ID and amount emits the matching notification. A broadcast acknowledgement or treasury seqno change alone does not confirm a payout. Destination history inspection is bounded to 100 transactions; older unconfirmed transfers require operator review.
+
+If a signed message expires without a verified credit, the oldest request blocks the queue with `review-required`; the worker does not automatically re-sign or refund an ambiguous transaction. Reconcile against chain history before changing its status. Never replace the configured treasury while a request is processing. Keep server RPC credentials and mnemonic out of logs and client variables.
+
+Full live test remains required: connect wallet, earn/convert internal BLU, reserve 1 BLU, observe the worker dispatch, verify the recipient balance and chain transaction, and verify repeated scheduler calls do not pay twice. The automated unit/SQL tests cannot substitute for this chain test.
+
+Mainnet remains disabled. The game currently accepts client-reported objective collection, so authoritative gameplay validation and reward limits must be implemented before funding withdrawals with real assets. Mainnet also requires a separately deployed/audited BLU master, a dedicated treasury, tested fee funding and operator recovery procedures.

@@ -34,12 +34,13 @@ export async function initializeProgress(initData=''){
 }
 export function dispatchProgress(command:GameCommand):LevelProgress{
  if(status==='sync-error'||status==='storage-error'||status==='offline')return state;
+ command={...command,cityLevel:command.cityLevel??state.cityLevel};
  const next=applyCommand(state,command);if(next===state)return state;
  if(status==='cloud'||status==='saving'){
  const entry={id:crypto.randomUUID(),command};outbox.push(entry);try{journal();}catch{outbox.pop();status='storage-error';notify();return state;}state=next;save();queue(entry);
  }else{const old=state;state=next;try{localStorage.setItem(key,JSON.stringify(state));}catch{state=old;status='storage-error';}notify();}
  return state;
 }
-export function checkpointProgress(snapshot:LevelProgress){for(const id of [1,2,3,4,5,6]){const flags=id===1?snapshot.cells:id===2?snapshot.metro:snapshot.objectives[id];flags?.forEach((v,i)=>{if(v&&!state.objectives[id]?.[i])dispatchProgress({type:'collect',id,index:i});});if((id===1?snapshot.restored:id===2?snapshot.metroDone:snapshot.completed.includes(id as 1))&&!state.completed.includes(id as 1))dispatchProgress({type:'finish',id});}return state;}
+export function checkpointProgress(snapshot:LevelProgress){for(const id of [1,2,3,4,5,6]){const flags=id===1?snapshot.cells:id===2?snapshot.metro:snapshot.objectives[id];flags?.forEach((v,i)=>{if(v&&!state.objectives[id]?.[i])dispatchProgress({type:'collect',id,index:i});});if((id===1?snapshot.completed.includes(1):id===2?snapshot.metroDone:snapshot.completed.includes(id as 1))&&!state.completed.includes(id as 1))dispatchProgress({type:'finish',id});}return state;}
 export async function refreshProgress(){if(status==='device'||status==='setup-required')return;await tail;if(outbox.length){status='sync-error';notify();return;}try{const{r,d}=await request({action:'open'});if(r.ok){revision=d.revision;state=parseLevelProgress(JSON.stringify(d.progress));status='cloud';save();}else{status='sync-error';notify();}}catch{status='sync-error';notify();}}
 export async function createBrowserLink(){const{r,d}=await request({action:'link'});if(!r.ok)throw Error(d.code);return `${location.origin}/?connect=${d.ticket}`;}

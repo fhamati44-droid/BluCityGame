@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { getProgress, checkpointProgress, dispatchProgress, getSyncStatus } from '../../lib/progress-store';
-import { unlockedLevel } from '../../lib/levels';
+import { unlockedLevel, cityScale, cityName } from '../../lib/levels';
 import { BluRig, toon } from './BluRig';
 import { completeLevel, exchangeCoins, upgradeDash, COINS_PER_BLU, DASH_COST_BLU, LEVELS, parseLevelProgress, SAVE_KEY, type LevelId } from '../../lib/levels';
 
@@ -25,10 +25,12 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored, c
   const [started, setStarted] = useState(false); const startedRef = useRef(false);
   const [status, setStatus] = useState<Status>({ extraGot:0,levelDone:false,runTime:0,runDone:false,cells: 0, metroCells: 0, energy: 0, meters: 0, direction: 0, restored: false, metroDone: false, level: 1, coins: 0, blu: 0, dashLevel: 0, celebrating: false, nearby: false, overcharge: false, rail: false, secret: false, charge: 0, dashing: false, score: 0, bolts: 0, tutorial: true });
   const t = copy[lang]; const tRef = useRef(t); tRef.current = t;
+  const city=getProgress().cityLevel;
+  const cityLabel=`Level ${city} · ${cityName(city,lang)}`;
   const ui = {
-    en: { level: 'LEVEL', coins: 'COINS', reward: 'LEVEL COMPLETE · +', next: 'Continue to Level 2', locked: 'Complete Level 1 to unlock', local: 'Progress saved on this device', exchange: 'Exchange 100 Coin → 1 BLU', upgrade: 'Upgrade dash · 2 BLU', dash: 'Dash upgrade' },
-    he: { level: 'שלב', coins: 'מטבעות', reward: 'השלב הושלם · +', next: 'המשך לשלב 2', locked: 'יש להשלים את שלב 1', local: 'ההתקדמות נשמרת במכשיר הזה', exchange: 'המר 100 Coin ל־1 BLU', upgrade: 'שדרג דאש · 2 BLU', dash: 'שדרוג דאש' },
-    ar: { level: 'المرحلة', coins: 'العملات', reward: 'اكتملت المرحلة · +', next: 'تابع إلى المرحلة 2', locked: 'أكمل المرحلة 1 أولاً', local: 'يُحفظ التقدم على هذا الجهاز', exchange: 'حوّل 100 Coin إلى 1 BLU', upgrade: 'طوّر الاندفاع · 2 BLU', dash: 'تطوير الاندفاع' },
+    en: { level: 'MISSION', coins: 'COINS', reward: 'LEVEL COMPLETE · +', next: 'Continue to Level 2', locked: 'Complete Level 1 to unlock', local: 'Progress saved on this device', exchange: 'Exchange 100 Coin → 1 BLU', upgrade: 'Upgrade dash · 2 BLU', dash: 'Dash upgrade' },
+    he: { level: 'משימה', coins: 'מטבעות', reward: 'השלב הושלם · +', next: 'המשך לשלב 2', locked: 'יש להשלים את שלב 1', local: 'ההתקדמות נשמרת במכשיר הזה', exchange: 'המר 100 Coin ל־1 BLU', upgrade: 'שדרג דאש · 2 BLU', dash: 'שדרוג דאש' },
+    ar: { level: 'مهمة', coins: 'العملات', reward: 'اكتملت المرحلة · +', next: 'تابع إلى المرحلة 2', locked: 'أكمل المرحلة 1 أولاً', local: 'يُحفظ التقدم على هذا الجهاز', exchange: 'حوّل 100 Coin إلى 1 BLU', upgrade: 'طوّر الاندفاع · 2 BLU', dash: 'تطوير الاندفاع' },
   }[lang];
   const begin = () => { if (startedRef.current) return; startedRef.current = true; setStarted(true); };
 
@@ -109,7 +111,7 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored, c
     const metroCores = [[-13, -44], [11, -49]].map(([x, z]) => { const g = makeObjective(x, z, coreGeo, 0xff5fc8, beamPink); g.visible = false; return g; });
 
     // Connected alley, accessible rooftop route and the power district.
-    const surfaces=[{x:8,z:-18,w:5,d:5,y:3},{x:8,z:-26,w:5,d:6,y:4},{x:8,z:-35,w:5,d:6,y:4},{x:4,z:-41,w:6,d:5,y:3}];
+    const surfaces=[{x:8,z:-18,w:5,d:5,y:3},{x:8,z:-26,w:5,d:6,y:4},{x:8,z:-35,w:5,d:6,y:4},{x:4,z:-41,w:10,d:5,y:3}];
     for(const roof of surfaces){box(roof.w,roof.y,roof.d,T(0x465994),roof.x,roof.y/2,roof.z);box(roof.w+.2,.16,roof.d+.2,T(0xdcecff),roof.x,roof.y+.08,roof.z);}
     const roofPad=cyl(1,.16,T(0x6ff7ff,0x6ff7ff,.6),8,.1,-12);
     const boulevardMat=T(0x304965) as THREE.MeshToonMaterial;box(30,.06,8,boulevardMat,16,-.01,-36);box(25,.06,36,T(0x29344e),12,-.01,-78);
@@ -146,19 +148,24 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored, c
     const trail = [0, 1, 2, 3, 4].map(() => { const o = new THREE.Mesh(sphGeo, B(0x6ff7ff)); o.scale.setScalar(.12); scene.add(o); return o; });
 
     // Checkpoint
+    for(const r of [{x:8,a:-10,b:-15,ya:0,yb:3},{x:8,a:-20.5,b:-22.5,ya:3,yb:4},{x:8,a:-29,b:-31.5,ya:4,yb:4},{x:8,a:-38,b:-39,ya:4,yb:3}]){const ramp=box(2.5,.18,Math.hypot(r.a-r.b,r.yb-r.ya),T(0xffcf45),r.x,(r.ya+r.yb)/2,(r.a+r.b)/2);ramp.rotation.x=Math.atan2(r.yb-r.ya,r.a-r.b);}
     let progress = getProgress();
-    const found = [...progress.cells]; let restored = progress.restored || serverRestored;
+    const worldScale=cityScale(progress.cityLevel);
+    const world=new THREE.Group();for(const child of [...scene.children])if(child!==sky&&child!==sun&&!clouds.includes(child as THREE.Group)&&!(child instanceof THREE.Light))world.add(child);scene.add(world);world.scale.set(worldScale,1,worldScale);
+    // The robot remains human sized while the city footprint grows.
+    blu.root.scale.set(1/worldScale,1,1/worldScale);
+    const found = [...progress.cells]; let restored = progress.completed.includes(1) || serverRestored;
     const metroFound = [...progress.metro]; let metroDone = progress.metroDone;
     let activeLevel: LevelId = unlockedLevel(progress);
     // Complete older saves without granting a new reward for a mission finished before coins existed.
     if (restored && !progress.claimed.includes(1)) progress = { ...progress, restored: true, claimed: [...progress.claimed, 1] };
     if (metroDone && !progress.claimed.includes(2)) progress = { ...progress, claimed: [...progress.claimed, 2] };
-    const save = () => { progress=checkpointProgress({...progress,cells:found,restored,metro:metroFound,metroDone}); };
+    const save = () => { progress=checkpointProgress({...progress,cells:found,restored:progress.restored,metro:metroFound,metroDone}); };
     const award = (id: LevelId) => { save();progress=dispatchProgress({type:"finish",id}); };
     cells.forEach((c, i) => { c.visible = !found[i]; }); metroCores.forEach((c, i) => { c.visible = activeLevel === 2 && !metroFound[i]; });
     const litMats = { lamp: B(0xfff3b0), sign: T(0xff4fa3, 0xff4fa3, 1), core: B(0x6ff7ff), station: T(0x6ff7ff, 0x6ff7ff, .9) };
     let litWindows = 0; const lightWindow = (i: number) => { windowsMesh.setColorAt(i, litColor); };
-    const applyLights = (instant: boolean) => { genCore.material = litMats.core; towerTop.material = litMats.core; if (instant) { for (let i = 0; i < wi; i++) lightWindow(i); litWindows = wi; if (windowsMesh.instanceColor) windowsMesh.instanceColor.needsUpdate = true; lamps.forEach(l => { l.material = litMats.lamp; }); signs.forEach(s => { s.material = litMats.sign; }); } };
+    const applyLights = (instant: boolean) => { genCore.material = litMats.core; towerTop.material = litMats.core; if (instant) { const goal=Math.floor(wi*progress.completed.length/6);for (let i = 0; i < goal; i++) lightWindow(i); litWindows = goal; if (windowsMesh.instanceColor) windowsMesh.instanceColor.needsUpdate = true; lamps.forEach((l,i) => { if(i<lamps.length*progress.completed.length/6)l.material = litMats.lamp; }); signs.forEach((s,i) => { if(i<signs.length*progress.completed.length/6)s.material = litMats.sign; }); } };
     if (restored) applyLights(true);if(challenge){genRing.visible=false;} if (metroDone) stationSign.material = litMats.station;
 
     const state = { pos: new THREE.Vector3(0, 0, 10), vy: 0, jumps: 0, speed: 0, energy: restored ? 65 : 0, dash: 0, slide: 0, over: 0, charge: 0, time: 0, lastHud: 0, restoreTime: 0, metroTime: 0, padReady: true, airborne: false, idle: 0, yaw: 0, shake: 0, bolts: 0, travelled: 0, onRail: false, railShown: false, secretShown: false };
@@ -178,7 +185,7 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored, c
       const remaining = challenge?[]:activeLevel === 1 ? cells.filter((_, i) => !found[i]) : activeLevel===2?metroCores.filter((_, i) => !metroFound[i]):(extra[activeLevel]||[]).filter((_,i)=>!progress.objectives[activeLevel][i]);
       const target = remaining.length ? remaining.reduce((best, c) => c.position.distanceTo(state.pos) < best.position.distanceTo(state.pos) ? c : best).position : challenge?runFinish:activeLevel === 1 ? new THREE.Vector3(0, 0, -35) : activeLevel===2?new THREE.Vector3(-9, 0, -50):terminals[activeLevel];
       const dx = target.x - state.pos.x, dz = target.z - state.pos.z;
-      setStatus({extraGot:progress.objectives[activeLevel].filter(Boolean).length,levelDone:progress.completed.includes(activeLevel),runTime:Math.round(state.time),runDone,cells: found.filter(Boolean).length, metroCells: metroFound.filter(Boolean).length, energy: Math.round(state.energy), meters: Math.round(Math.hypot(dx, dz)), direction: Math.atan2(dx, -dz), restored, metroDone, level: activeLevel, coins: progress.coins, blu: progress.blu, dashLevel: progress.dashLevel, celebrating: (extraCelebrate>0&&state.time-extraCelebrate<3.6)|| (state.restoreTime > 0 && state.time - state.restoreTime < 3.6) || (state.metroTime > 0 && state.time - state.metroTime < 3.6), nearby: challenge?state.pos.distanceTo(runFinish)<4:activeLevel>2?state.pos.distanceTo(terminals[activeLevel])<4:activeLevel === 2 ? Math.hypot(state.pos.x + 9, state.pos.z + 50) < 4.2 : Math.hypot(state.pos.x, state.pos.z + 35) < 4.2, overcharge: state.over > 0, rail: state.onRail, secret: state.pos.x > 13 && state.pos.z < -23, charge: state.charge, dashing: state.dash > 0, score: Math.round(state.bolts * 10 + state.travelled), bolts: state.bolts, tutorial: startedRef.current && state.travelled < 6 });
+      setStatus({extraGot:progress.objectives[activeLevel].filter(Boolean).length,levelDone:progress.completed.includes(activeLevel),runTime:Math.round(state.time),runDone,cells: found.filter(Boolean).length, metroCells: metroFound.filter(Boolean).length, energy: Math.round(state.energy), meters: Math.round(Math.hypot(dx, dz)*worldScale), direction: Math.atan2(dx, -dz), restored, metroDone, level: activeLevel, coins: progress.coins, blu: progress.blu, dashLevel: progress.dashLevel, celebrating: (extraCelebrate>0&&state.time-extraCelebrate<3.6)|| (state.restoreTime > 0 && state.time - state.restoreTime < 3.6) || (state.metroTime > 0 && state.time - state.metroTime < 3.6), nearby: challenge?state.pos.distanceTo(runFinish)<4:activeLevel>2?state.pos.distanceTo(terminals[activeLevel])<4:activeLevel === 2 ? Math.hypot(state.pos.x + 9, state.pos.z + 50) < 4.2 : Math.hypot(state.pos.x, state.pos.z + 35) < 4.2, overcharge: state.over > 0, rail: state.onRail, secret: state.pos.x > 13 && state.pos.z < -23, charge: state.charge, dashing: state.dash > 0, score: Math.round(state.bolts * 10 + state.travelled), bolts: state.bolts, tutorial: startedRef.current && state.travelled < 6 });
     };
     const animate = () => {
       frame = requestAnimationFrame(animate); const now = performance.now(); const dt = Math.min((now - last) / 1000, .04); last = now;
@@ -186,7 +193,7 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored, c
       if (input.current.upgrade) { input.current.upgrade = false; progress=dispatchProgress({type:"dash"});publish(); }
       if (document.hidden || pausedRef.current) return; state.time += dt; const control = input.current; const playing = startedRef.current;
       if (control.start) { control.start = false; startedRef.current = true; setStarted(true);if(challenge){progress=dispatchProgress({type:"run-start"});state.time=0;state.bolts=0;} }
-      if (control.next && progress.completed.includes(activeLevel)) { control.next = false; if(activeLevel<6)activeLevel=(activeLevel+1) as LevelId; else {onMenu();return;} metroCores.forEach((c, i) => { c.visible = activeLevel===2&&!metroFound[i]; });state.charge = 0;publish(); }
+      if (control.next && progress.completed.includes(activeLevel)) { control.next = false; if(activeLevel<6)activeLevel=(activeLevel+1) as LevelId; else {progress=dispatchProgress({type:'next-city'});onMenu();return;} metroCores.forEach((c, i) => { c.visible = activeLevel===2&&!metroFound[i]; });state.charge = 0;publish(); }
       let horizontal = 0, forward = 0;
       if (playing) {
         horizontal = THREE.MathUtils.clamp(control.x + Number(key.has('KeyD') || key.has('ArrowRight')) - Number(key.has('KeyA') || key.has('ArrowLeft')), -1, 1);
@@ -199,14 +206,18 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored, c
       state.dash = Math.max(0, state.dash - dt); state.slide = Math.max(0, state.slide - dt); state.over = Math.max(0, state.over - dt);
       const rail = Math.abs(state.pos.x + 9.2) < 1.2 && state.pos.z < -4 && state.pos.z > -65;
       const move = new THREE.Vector3(horizontal, 0, -forward); const mag = Math.min(1, move.length()); if (mag > 0) move.normalize();
+      progress=getProgress();
       const targetSpeed = (state.dash > 0 ? 21 : state.over > 0 ? 14.5 : state.onRail ? 13 : progress.inventory.includes('shoes')?10.35:9) * (state.dash > 0 ? 1 : mag);
       state.speed = THREE.MathUtils.damp(state.speed, targetSpeed, 9, dt);
       const dir = state.dash > 0 && mag < .1 ? new THREE.Vector3(Math.sin(state.yaw), 0, Math.cos(state.yaw)) : move;
       const before = state.pos.clone();
-      state.pos.x = THREE.MathUtils.clamp(state.pos.x + dir.x * state.speed * dt, -17, 32); state.pos.z = THREE.MathUtils.clamp(state.pos.z + dir.z * state.speed * dt, -96, 18);
+      state.pos.x = THREE.MathUtils.clamp(state.pos.x + dir.x * state.speed * dt/worldScale, -17, 32); state.pos.z = THREE.MathUtils.clamp(state.pos.z + dir.z * state.speed * dt/worldScale, -96, 18);
       if(activeLevel<6&&state.pos.z < -62)state.pos.z=-62;
       state.travelled += Math.hypot(state.pos.x - before.x, state.pos.z - before.z) * .5;
       const onPad = Math.hypot(state.pos.x + 9.2, state.pos.z + 5) < 1.1; if (onPad && state.pos.y < .15 && state.padReady && playing) { state.vy = 17; state.jumps = 1; state.padReady = false; state.airborne = true; blu.jump(false); burst(tmpV.set(-9.2, .3, -5), 0xff4fa3, 14, 6, 6); } if (!onPad&&Math.hypot(state.pos.x-8,state.pos.z+12)>1.2) state.padReady = true;
+      // A continuous rooftop route is accessible without perfectly timed double jumps.
+      const ramps=[{x:8,a:-10,b:-15,ya:0,yb:3},{x:8,a:-20.5,b:-22.5,ya:3,yb:4},{x:8,a:-29,b:-31.5,ya:4,yb:4},{x:8,a:-38,b:-39,ya:4,yb:3}];
+      for(const r of ramps){if(Math.abs(state.pos.x-r.x)<1.25&&state.pos.z<=r.a&&state.pos.z>=r.b-.6){const y=THREE.MathUtils.lerp(r.ya,r.yb,Math.min(1,(r.a-state.pos.z)/(r.a-r.b)));if(state.pos.y>=y-.65&&state.pos.y<=y+.3&&state.vy<=0){state.pos.y=y;state.vy=0;state.jumps=0;}}}
       const vyBefore = state.vy; state.vy -= 28 * dt; state.pos.y = Math.max(0, state.pos.y + state.vy * dt);
       for(const roof of surfaces){if(Math.abs(state.pos.x-roof.x)<roof.w/2+.2&&Math.abs(state.pos.z-roof.z)<roof.d/2+.2){if(state.vy<=0&&before.y>=roof.y-.25&&state.pos.y<=roof.y){state.pos.y=roof.y;state.vy=0;state.jumps=0;}else if(state.pos.y<roof.y-.3){state.pos.x=before.x;state.pos.z=before.z;}}}
       if(Math.hypot(state.pos.x-8,state.pos.z+12)<1.1&&state.pos.y<.15&&state.padReady&&playing){state.vy=17;state.jumps=1;state.padReady=false;blu.jump(false);} 
@@ -239,10 +250,10 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored, c
       for (let i = 0; i < 3; i++) { const gem = cells[i].children[0]; gem.rotation.y += dt * 1.8; gem.position.y = 1.9 + Math.sin(state.time * 3 + i) * .2; if (playing && activeLevel === 1 && !found[i] && Math.hypot(state.pos.x - cells[i].position.x, state.pos.z - cells[i].position.z) < 1.8 && state.pos.y < 3.5) { found[i] = true; cells[i].visible = false; state.energy = Math.min(100, state.energy + 35); if (state.energy >= 100) { state.over = progress.inventory.includes("battery")?10:7; state.energy = 100; popup(tRef.current.overcharge, tmpV.copy(cells[i].position).setY(4), 'big'); } else popup(tRef.current.cell, tmpV.copy(cells[i].position).setY(3.5)); burst(tmpV.copy(cells[i].position).setY(1.9), 0x6ff7ff, 22, 7, 6); save(); navigator.vibrate?.(35); publish(); } }
       for (let i = 0; i < 2; i++) { const core = metroCores[i]; core.children[0].rotation.y += dt * 1.4; if (playing && activeLevel === 2 && !metroFound[i] && Math.hypot(state.pos.x - core.position.x, state.pos.z - core.position.z) < 1.8) { metroFound[i] = true; core.visible = false; state.energy = Math.min(100, state.energy + 35); popup(tRef.current.core, tmpV.copy(core.position).setY(3.5)); burst(tmpV.copy(core.position).setY(1.6), 0xff7ad0, 22, 7, 6); save(); navigator.vibrate?.(35); publish(); } }
       if (charging && !challenge&&activeLevel === 1) { state.charge = Math.min(1, state.charge + dt / (progress.inventory.includes("gloves")?1.12:1.6)); if (Math.random() < .5) burst(tmpV.set((Math.random() - .5) * 5, .3, -35 + (Math.random() - .5) * 5), 0x6ff7ff, 1, 1, 7); if (state.charge >= 1) { restored = true; state.restoreTime = state.time; state.shake = .5; award(1); applyLights(false); burst(tmpV.set(0, 5, -35), 0xffe27a, 40, 16, 10); callbacks.current.onReward(); navigator.vibrate?.([40, 30, 90]); publish(); } }
-      else if (charging && !challenge&&activeLevel === 2) { state.charge = Math.min(1, state.charge + dt / (progress.inventory.includes("gloves")?1.05:1.5)); if (state.charge >= 1) { metroDone = true; state.metroTime = state.time; state.shake = .4; stationSign.material = litMats.station; burst(tmpV.set(-9, 4, -50), 0xff7ad0, 36, 14, 9); award(2); navigator.vibrate?.([40, 30, 90]); publish(); } }
-      else if(charging&&(activeLevel>2||challenge)){state.charge=Math.min(1,state.charge+dt/(progress.inventory.includes('gloves')?1.05:1.5));if(state.charge>=1){if(challenge){const before=progress.runs;progress=dispatchProgress({type:'run-finish',bolts:state.bolts});runDone=progress.runs>before;}else award(activeLevel);extraCelebrate=state.time;state.shake=.4;burst(tmpV.copy(state.pos).setY(state.pos.y+2),0x6ff7ff,35,14,8);publish();}}
+      else if (charging && !challenge&&activeLevel === 2) { state.charge = Math.min(1, state.charge + dt / (progress.inventory.includes("gloves")?1.05:1.5)); if (state.charge >= 1) { metroDone = true; state.metroTime = state.time; state.shake = .4; stationSign.material = litMats.station; burst(tmpV.set(-9, 4, -50), 0xff7ad0, 36, 14, 9); award(2);applyLights(true); navigator.vibrate?.([40, 30, 90]); publish(); } }
+      else if(charging&&(activeLevel>2||challenge)){state.charge=Math.min(1,state.charge+dt/(progress.inventory.includes('gloves')?1.05:1.5));if(state.charge>=1){if(challenge){const before=progress.runs;progress=dispatchProgress({type:'run-finish',bolts:state.bolts});runDone=progress.runs>before;}else {award(activeLevel);applyLights(true);}extraCelebrate=state.time;state.shake=.4;burst(tmpV.copy(state.pos).setY(state.pos.y+2),0x6ff7ff,35,14,8);publish();}}
       else state.charge = Math.max(0, state.charge - dt * 1.5);
-      if (state.restoreTime > 0 && litWindows < wi) { const goal = Math.min(wi, Math.floor((state.time - state.restoreTime) * 160)); for (; litWindows < goal; litWindows++) lightWindow(litWindows); if (windowsMesh.instanceColor) windowsMesh.instanceColor.needsUpdate = true; lamps.forEach((l, i) => { if (i < (state.time - state.restoreTime) * 8) l.material = litMats.lamp; }); signs.forEach((s, i) => { if (i < (state.time - state.restoreTime) * 3) s.material = litMats.sign; }); }
+      if (state.restoreTime > 0 && litWindows < wi) { const goal = Math.min(Math.floor(wi*progress.completed.length/6), Math.floor((state.time - state.restoreTime) * 160)); for (; litWindows < goal; litWindows++) lightWindow(litWindows); if (windowsMesh.instanceColor) windowsMesh.instanceColor.needsUpdate = true; lamps.forEach((l, i) => { if (i < Math.min(lamps.length*progress.completed.length/6,(state.time - state.restoreTime) * 8)) l.material = litMats.lamp; }); signs.forEach((s, i) => { if (i < Math.min(signs.length*progress.completed.length/6,(state.time - state.restoreTime) * 3)) s.material = litMats.sign; }); }
       for(const id of [3,4,5,6]){extra[id].forEach((o,i)=>{o.visible=!challenge&&activeLevel===id&&!progress.objectives[id][i];o.children[0].rotation.y+=dt*2;if(o.visible&&playing&&state.pos.distanceTo(o.position)<1.8){progress=dispatchProgress({type:'collect',id,index:i});state.energy=Math.min(100,state.energy+35);if(state.energy>=100)state.over=progress.inventory.includes('battery')?10:7;burst(tmpV.copy(o.position).setY(o.position.y+1.8),0x6ff7ff,18,6,6);publish();}});terminalRings[id].visible=!challenge&&activeLevel===id&&!progress.completed.includes(id)&&progress.objectives[id].every(Boolean);}
       if(activeLevel===5&&progress.objectives[5].every(Boolean)&&state.pos.distanceTo(mechanic.position)<4)escort=true;
       if(escort&&!progress.completed.includes(5)){const target=state.pos.clone();target.y=0;mechanic.position.lerp(target,1-Math.exp(-2*dt));mechanic.rotation.y=Math.atan2(target.x-mechanic.position.x,target.z-mechanic.position.z);}
@@ -295,7 +306,7 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored, c
     <div ref={fx} className="fx-layer" aria-hidden="true" />
     {unsupported ? <div className="play-unsupported"><img src="/blu.webp" alt="BLU" /><p>{t.unsupported}</p><button className="btn3d yellow" onClick={onMenu}>{t.resume}</button></div> : !started ? <div className="title-screen" onClick={() => { input.current.start = true; begin(); }}>
       <div className="title-logo"><span className="logo-blu">BLU</span><span className="logo-city">CITY</span></div>
-      <p className="level-title">{ui.level} {status.level} · {LEVELS[status.level - 1].title}</p>
+      <p className="level-title">{cityLabel} · {ui.level} {status.level}</p>
       <button className="btn3d yellow tap-play" onClick={e => { e.stopPropagation(); input.current.start = true; begin(); }}>{t.tap}</button>
       <button className="btn3d blue title-menu" onClick={e => { e.stopPropagation(); onMenu(); }}>{t.city}</button>
     </div> : <>
@@ -311,12 +322,12 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored, c
       </div>
       <div className="hud-mission">
         <span className="mission-arrow" style={{ transform: `rotate(${status.direction}rad)` }} aria-hidden="true">▲</span>
-        <div><strong>{ui.level} {status.level} · {objective}</strong><small>{challenge?`${status.bolts}/20 · ${status.runTime}s`:`${status.meters} m`}</small></div>
+        <div><strong>{cityLabel} · {ui.level} {status.level} · {objective}</strong><small>{challenge?`${status.bolts}/20 · ${status.runTime}s`:`${status.meters} m`}</small></div>
         {!status.levelDone&&!challenge && <div className="pips">{Array.from({ length: total }, (_, i) => <i key={i} className={i < got ? (status.level === 2 ? 'on pink' : 'on') : ''} />)}</div>}
       </div>
       {status.tutorial && <div className="play-tutorial">{t.start}</div>}
       {status.celebrating && <div className="victory"><div className="rays" /><strong>{extended.done}</strong><span>{LEVELS[status.level-1].names[lang]}</span></div>}
-      {!challenge&&status.levelDone&&!status.celebrating&&<div className="level-complete"><strong>{ui.reward}{LEVELS[status.level-1].rewardCoins} {ui.coins}</strong><button className="btn3d yellow" onClick={()=>{input.current.next=true;}}>{status.level<6?`${extended.next} · ${ui.level} ${status.level+1}`:t.menu}</button></div>}{challenge&&status.runDone&&<div className="level-complete"><strong>+40 Coin</strong><button className="btn3d yellow" onClick={onMenu}>{t.menu}</button></div>}
+      {!challenge&&status.levelDone&&!status.celebrating&&<div className="level-complete"><strong>{ui.reward}{LEVELS[status.level-1].rewardCoins} {ui.coins}</strong><button className="btn3d yellow" onClick={()=>{input.current.next=true;}}>{status.level<6?`${extended.next} · ${ui.level} ${status.level+1}`:`${lang==='he'?'העיר התעוררה! לעיר הבאה':lang==='ar'?'المدينة استيقظت! للمدينة التالية':'City awakened! Next city'} · Level ${city+1}`}</button></div>}{challenge&&status.runDone&&<div className="level-complete"><strong>+40 Coin</strong><button className="btn3d yellow" onClick={onMenu}>{t.menu}</button></div>}
       <div className="play-controls">
         <div className="play-stick" onPointerDown={e => { e.currentTarget.setPointerCapture(e.pointerId); stick(e); }} onPointerMove={e => { if (e.currentTarget.hasPointerCapture(e.pointerId)) stick(e); }} onPointerUp={release} onPointerCancel={release}><span ref={knob} /></div>
         <div className="play-actions">
