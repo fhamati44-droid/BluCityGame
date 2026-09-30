@@ -37,3 +37,6 @@ Central Grid currently has two playable missions. The Energy Tower chapter, skin
 
 ## Chapter 1 update
 Six sequential gameplay missions, repeatable Energy Circuit, Coin equipment shop, visible rig colors, unified client save and server command API are implemented. See [GAME_ARCHITECTURE.md](GAME_ARCHITECTURE.md). Apply `supabase/progression_v3.sql` before cross-device play. Telegram Stars purchases are implemented but disabled until server environment/webhook/support setup and live testing. They are not active merely because the site deploys.
+
+## TON testnet
+The BLU tab now supports TON Connect and on-chain BLU balance display. Optional testnet withdrawal reservations require a migration and operator; payouts are manual and disabled by default. See [TON_TESTNET.md](TON_TESTNET.md) for deployment, testing and limits.

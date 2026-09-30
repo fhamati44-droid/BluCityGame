@@ -156,3 +156,14 @@
 @media(min-width:541px) { body { background:radial-gradient(ellipse at top,#122747,#020711 80%); }.premium-shell.game-shell { box-shadow:0 0 100px #0007; }.hub-hero { min-height:410px; }.hub-mascot { inset-inline-end:-5px; } }
 @media(prefers-reduced-motion:reduce) { .game-hub * { animation:none!important; transition:none!important; }.hub-screen { animation:none; } }
 .wardrobe-preview{position:relative;height:260px;margin:20px 0;border:1px solid #315879;border-radius:24px;background:radial-gradient(ellipse at center,#21669755,#071528);overflow:hidden}.wardrobe-preview canvas{display:block}.wardrobe-preview>span{position:absolute;bottom:15px;left:20px;font-size:11px;letter-spacing:2px;color:#8adfff;pointer-events:none}.equipment-swatch{display:inline-block;width:40px;height:40px;border-radius:12px;box-shadow:inset 0 -5px 0 #0003,0 0 25px #64cfff22}.coin-packs button{display:flex;justify-content:space-between;width:100%;min-height:48px;margin:10px 0;padding:14px;border:1px solid #355270;border-radius:14px;background:#153046;color:#fff}.coin-packs button:disabled{opacity:.5}.coin-packs small{color:#9ab4cd}.hub-card a{color:#4bddff}
+
+/* TON testnet wallet */
+.ton-wallet-panel { display: grid; gap: 14px; }
+.ton-wallet-panel .hub-card-top h2 { margin: 0; }
+.ton-address { overflow-wrap: anywhere; font-family: monospace; font-size: 12px; user-select: all; }
+.ton-wallet-panel label { display: grid; gap: 8px; }
+.ton-wallet-panel input[type=number] { width: 100%; padding: 12px; border: 1px solid #7a8cc4; border-radius: 12px; color: inherit; background: transparent; font: inherit; }
+.ton-wallet-panel .ton-confirm { display: flex; align-items: start; gap: 10px; font-size: 14px; }
+.ton-confirm input { margin-top: 4px; flex-shrink: 0; }
+.ton-wallet-panel a { color: #b8d1ff; text-decoration: underline; }
+.ton-wallet-panel ul { padding-inline-start: 20px; }
