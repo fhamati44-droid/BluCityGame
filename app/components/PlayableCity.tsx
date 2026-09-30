@@ -121,11 +121,11 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored, c
     const factory=box(10,10,8,T(0x446274),12,5,-86);cyl(1,12,T(0x9aacbf),19,6,-87);
     const powerNodes=[[-8,-73],[12,-79],[27,-89]];
     const extra:Record<number,THREE.Group[]>={
-      3:[[17,-16],[28,-23],[21,-40]].map(([x,z])=>makeObjective(x,z,crystalGeo,0xffcf45,beamMat)),
+      3:[[17,-16],[17,-25],[17,-42]].map(([x,z])=>makeObjective(x,z,crystalGeo,0xffcf45,beamMat)),
       4:[[8,-18],[8,-26],[8,-35]].map(([x,z],i)=>{const o=makeObjective(x,z,coreGeo,0xff5fc8,beamPink);o.position.y=surfaces[i].y;return o;}),
       5:[[14,-47],[29,-50]].map(([x,z])=>makeObjective(x,z,coreGeo,0x92ffaa,beamMat)),
       6:powerNodes.map(([x,z])=>makeObjective(x,z,crystalGeo,0x6ff7ff,beamMat))};
-    const terminals:Record<number,THREE.Vector3>={3:new THREE.Vector3(27,0,-30),4:new THREE.Vector3(4,3,-41),5:new THREE.Vector3(24,0,-52),6:new THREE.Vector3(12,0,-63)};
+    const terminals:Record<number,THREE.Vector3>={3:new THREE.Vector3(17,0,-31),4:new THREE.Vector3(4,3,-41),5:new THREE.Vector3(24,0,-52),6:new THREE.Vector3(12,0,-63)};
     const terminalRings:Record<number,THREE.Mesh>={};for(const id of [3,4,5,6]){const ring=new THREE.Mesh(new THREE.TorusGeometry(2,.1,8,32),B(0x6ff7ff));ring.rotation.x=Math.PI/2;ring.position.copy(terminals[id]).add(new THREE.Vector3(0,.2,0));scene.add(ring);terminalRings[id]=ring;disposables.push(ring.geometry);}
     const mechanic=new THREE.Group();box(.7,1.1,.55,T(0xffcf45),0,.65,0,mechanic);ball(.3,T(0xe4f9ff),0,1.45,0,mechanic);mechanic.position.set(29,0,-50);scene.add(mechanic);
     let escort=false,extraCelebrate=0,runDone=false;const runFinish=new THREE.Vector3(0,0,-50);

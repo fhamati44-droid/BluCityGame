@@ -13,7 +13,11 @@ const tick=(n=1)=>{for(let i=0;i<n;i++){clock+=40;frame();}};scene.input.start=t
 const visit=(x,z,y=0)=>{scene.state.pos.set(x,y,z);scene.state.vy=0;tick(2);};
 for(const[x,z]of[[-11,-8],[12,-23],[-4,-43]])visit(x,z);assert.equal(hud.cells,3);visit(0,-35);scene.input.charge=true;tick(50);scene.input.charge=false;assert.equal(progress.completed.length,1);assert.equal(progress.coins,100);
 scene.input.next=true;tick();for(const[x,z]of[[-13,-44],[11,-49]])visit(x,z);visit(-9,-50);scene.input.charge=true;tick(50);scene.input.charge=false;assert.equal(progress.completed.length,2);
-scene.input.next=true;tick();for(const[x,z]of[[17,-16],[28,-23],[21,-40]])visit(x,z);visit(27,-30);scene.input.charge=true;tick(50);scene.input.charge=false;assert.equal(progress.completed.length,3);
+scene.input.next=true;tick();
+// Walk mission 3 from the metro exit, rather than teleporting through scenery.
+const walkTo=(x,z)=>{for(let n=0;n<1500;n++){const dx=x-scene.state.pos.x,dz=z-scene.state.pos.z;if(Math.hypot(dx,dz)<.35)break;scene.input.x=Math.abs(dx)>.2?Math.sign(dx):0;scene.input.y=Math.abs(dz)>.2?Math.sign(dz):0;tick();}scene.input.x=scene.input.y=0;tick(5);assert.ok(Math.hypot(x-scene.state.pos.x,z-scene.state.pos.z)<1,'Reach mission target using movement');};
+walkTo(17,-49);for(const[x,z]of[[17,-42],[17,-25],[17,-16]])walkTo(x,z);assert.equal(hud.extraGot,3);walkTo(17,-31);assert.equal(hud.nearby,true);scene.input.charge=true;tick(50);scene.input.charge=false;assert.equal(progress.completed.length,3);
+
 scene.input.next=true;tick();visit(8,-10);scene.input.y=-1;for(let n=0;n<180&&scene.state.pos.z>-40;n++)tick();scene.input.y=0;tick(5);assert.ok(scene.state.pos.z < -38,'Rooftop route can be walked with actual input');assert.equal(hud.extraGot,3);scene.input.x=-1;tick(11);scene.input.x=0;tick(5);assert.ok(scene.state.pos.y>=2.9,'Can reach roof terminal without teleporting');scene.input.charge=true;tick(50);scene.input.charge=false;assert.equal(progress.completed.length,4);
 scene.input.next=true;tick();visit(14,-47);visit(29,-50);visit(24,-52);tick(100);scene.input.charge=true;tick(50);scene.input.charge=false;assert.equal(progress.completed.length,5);
 scene.input.next=true;tick();for(const[x,z]of[[-8,-73],[12,-79],[27,-89]])visit(x,z);visit(12,-63);scene.input.charge=true;tick(50);scene.input.charge=false;assert.equal(progress.completed.length,6);assert.equal(progress.coins,1230);scene.input.next=true;tick();assert.equal(progress.cityLevel,2);assert.equal(progress.completed.length,0);
