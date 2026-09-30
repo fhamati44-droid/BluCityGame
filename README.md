@@ -37,3 +37,9 @@ Central Grid currently has two playable missions. The Energy Tower chapter, skin
 
 ## Chapter 1 update
 Six sequential gameplay missions, repeatable Energy Circuit, Coin equipment shop, visible rig colors, unified client save and server command API are implemented. See [GAME_ARCHITECTURE.md](GAME_ARCHITECTURE.md). Apply `supabase/progression_v3.sql` before cross-device play. Telegram Stars purchases are implemented but disabled until server environment/webhook/support setup and live testing. They are not active merely because the site deploys.
+
+## TON testnet
+The BLU tab now supports TON Connect and on-chain BLU balance display. Optional testnet withdrawal reservations require a migration and operator; an automatic testnet payout worker is implemented and disabled until its private treasury and scheduler are configured. See [TON_TESTNET.md](TON_TESTNET.md) for deployment, testing and limits.
+
+
+City levels now contain six sequential missions. Only the sixth mission awakens the full city. Advancing starts fresh mission objectives in a larger city while retaining Coin, BLU, equipment, skins and dash upgrades. Existing version 3 saves are migrated without resetting balances. Later cities currently reuse the six mission types; unique mission layouts/content can be added next.
