@@ -8,7 +8,7 @@ import { BluRig, toon } from './BluRig';
 import { completeLevel, exchangeCoins, upgradeDash, COINS_PER_BLU, DASH_COST_BLU, LEVELS, parseLevelProgress, SAVE_KEY, type LevelId } from '../../lib/levels';
 
 type Lang = 'en' | 'he' | 'ar';
-type Props = { lang: Lang; onMenu: () => void; onReward: () => void; serverRestored: boolean; challenge?:boolean };
+type Props = { lang: Lang; onMenu: () => void; onReward: () => void; serverRestored: boolean; challenge?:boolean; mission?:LevelId };
 const copy = {
   en: { zone: 'Central Grid', collect: 'Find 3 energy cells', generator: 'Run to the main generator', charge: 'Hold Charge to restore power', done: 'Power restored!', next: 'The Energy Tower is next', metro: 'Metro rush', metroCollect: 'Find 2 signal cores', metroStation: 'Run to the metro station', metroCharge: 'Hold Charge to start the metro', metroDone: 'Metro is running!', menu: 'Menu', jump: 'Jump', dash: 'Dash', interact: 'Charge', start: 'Stick to move · swipe up to jump', unsupported: 'This device can’t show the 3D city', resume: 'Open the city map', rail: 'Rail grind!', secret: 'Secret route!', pause: 'Paused', continue: 'Keep playing', overcharge: 'Overcharge!', tap: 'Tap to play', score: 'Score', city: 'City', flip: 'Flip!', cell: 'Energy cell!', core: 'Signal core!' },
   he: { zone: 'Central Grid', collect: 'מצא 3 תאי אנרגיה', generator: 'רוץ לגנרטור הראשי', charge: 'החזק טעינה כדי להחזיר חשמל', done: 'החשמל חזר!', next: 'מגדל האנרגיה הבא בתור', metro: 'מרוץ המטרו', metroCollect: 'מצא 2 ליבות איתות', metroStation: 'רוץ לתחנת המטרו', metroCharge: 'החזק טעינה להפעלת המטרו', metroDone: 'המטרו נוסע!', menu: 'תפריט', jump: 'קפיצה', dash: 'דאש', interact: 'טעינה', start: 'ג׳ויסטיק לתנועה · החלק למעלה לקפיצה', unsupported: 'המכשיר הזה לא יכול להציג את העיר בתלת־ממד', resume: 'פתח את מפת העיר', rail: 'גלישה על המסילה!', secret: 'דרך סודית!', pause: 'הפסקה', continue: 'ממשיכים לשחק', overcharge: 'טעינת יתר!', tap: 'לחץ כדי לשחק', score: 'ניקוד', city: 'עיר', flip: 'סלטה!', cell: 'תא אנרגיה!', core: 'ליבת איתות!' },
@@ -17,7 +17,7 @@ const copy = {
 type Status = { completed:LevelId[]; sync:string; carrying:boolean; escorting:boolean; escortReady:boolean; nodeReady:boolean; extraGot:number; levelDone:boolean; runTime:number; runDone:boolean; cells: number; metroCells: number; energy: number; meters: number; direction: number; restored: boolean; metroDone: boolean; level: LevelId; coins: number; blu: number; dashLevel: number; celebrating: boolean; nearby: boolean; overcharge: boolean; rail: boolean; secret: boolean; charge: number; dashing: boolean; score: number; bolts: number; tutorial: boolean };
 const PALETTE = [0xff7b8e, 0x4fd6c8, 0xffc94d, 0x8b8cff, 0xff9f5a, 0x6fd3ff, 0xc98bff];
 
-export default function PlayableCity({ lang, onMenu, onReward, serverRestored, challenge=false }: Props) {
+export default function PlayableCity({ lang, onMenu, onReward, serverRestored, challenge=false, mission }: Props) {
   const host = useRef<HTMLDivElement>(null); const fx = useRef<HTMLDivElement>(null); const knob = useRef<HTMLSpanElement>(null); const boltChip = useRef<HTMLDivElement>(null);
   const input = useRef({ x: 0, y: 0, jump: false, dash: false, slide: false, charge: false, start: false, next: false, exchange: false, upgrade: false });
   const callbacks = useRef({ onReward }); callbacks.current.onReward = onReward;
@@ -156,7 +156,7 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored, c
     blu.root.scale.set(1/worldScale,1,1/worldScale);
     const found = [...progress.cells]; let restored = progress.completed.includes(1) || serverRestored;
     const metroFound = [...progress.metro]; let metroDone = progress.metroDone;
-    let activeLevel: LevelId = unlockedLevel(progress);
+    let activeLevel: LevelId = mission===unlockedLevel(progress)?mission:unlockedLevel(progress);
     // Complete older saves without granting a new reward for a mission finished before coins existed.
     if (restored && !progress.claimed.includes(1)) progress = { ...progress, restored: true, claimed: [...progress.claimed, 1] };
     if (metroDone && !progress.claimed.includes(2)) progress = { ...progress, claimed: [...progress.claimed, 2] };
@@ -288,7 +288,7 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored, c
     };
     publish(); animate();
     return () => { cancelAnimationFrame(frame); resize.disconnect(); window.removeEventListener('keydown', down); window.removeEventListener('keyup', up); mats.forEach(m => m.dispose()); disposables.forEach(d => d.dispose()); windowsMesh.dispose(); boltMesh.dispose(); renderer.dispose(); renderer.domElement.remove(); };
-  }, [serverRestored,challenge]);
+  }, [serverRestored,challenge,mission]);
 
   // Touch: swipe up = jump, down = slide, sideways = dash (anywhere on the stage)
   const touch = useRef<{ x: number; y: number } | null>(null);

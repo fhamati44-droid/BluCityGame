@@ -23,7 +23,7 @@ function queue(entry:Pending){pending++;status='saving';notify();tail=tail.then(
  }).then(()=>{pending--;if(pending===0&&status!=='sync-error'){state=authoritative;status='cloud';save();}});}
 export async function initializeProgress(initData=''){
  if(initialized)return;initialized=true;auth=initData;
- try{const id=initData?JSON.parse(new URLSearchParams(initData).get('user')||'{}').id:null;key=id?`blu_account_${id}`:SAVE_KEY;state=parseLevelProgress(localStorage.getItem(key)||localStorage.getItem(SAVE_KEY));}catch{}notify();
+ try{const id=initData?JSON.parse(new URLSearchParams(initData).get('user')||'{}').id:null;key=id?`blu_account_${id}`:SAVE_KEY;state=parseLevelProgress(localStorage.getItem(key));}catch{}notify();
  try{const{r,d}=await request({action:'open'});if(!r.ok){status=d.code==='MIGRATION_REQUIRED'?'setup-required':auth?'offline':'device';notify();return;}
  const local=state;key=`blu_account_${d.account}`;revision=d.revision;state=parseLevelProgress(JSON.stringify(d.progress));authoritative=state;status='cloud';
  try{const saved=JSON.parse(localStorage.getItem(key+'_outbox')||'[]');outbox=Array.isArray(saved)?saved.filter(e=>typeof e.id==='string'&&e.command?.type):[];}catch{outbox=[];}save();

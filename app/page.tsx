@@ -3,8 +3,9 @@
 import Image from 'next/image';
 import dynamic from 'next/dynamic';
 import { useEffect, useState } from 'react';
-import GameHub from './components/GameHub';
-import { initializeProgress, refreshProgress } from '../lib/progress-store';
+import GameHub, {type PlayRequest} from './components/GameHub';
+import {unlockedLevel} from '../lib/levels';
+import { getProgress, initializeProgress, refreshProgress } from '../lib/progress-store';
 const PlayableCity = dynamic(() => import('./components/PlayableCity'), { ssr: false, loading: () => <div className="play-boot">POWERING UP BLU CITY…</div> });
 
 type Lang = 'en' | 'he' | 'ar';
@@ -45,7 +46,7 @@ function BLUCharacter({ low = false, celebrate = false }: { low?: boolean; celeb
 
 export default function Home() {
   const [connectionCode, setConnectionCode] = useState('');
-  const [lang, setLang] = useState<Lang>('en'); const [player, setPlayer] = useState<Player>(initial); const [mode, setMode] = useState<'loading' | 'live' | 'demo' | 'error'>('loading'); const [busy, setBusy] = useState(false); const [message, setMessage] = useState(''); const [tick, setTick] = useState(0); const [telegram, setTelegram] = useState<Tg | null>(null); const [celebrate, setCelebrate] = useState(false); const [playing, setPlaying] = useState(false); const [challenge,setChallenge]=useState(false);
+  const [lang, setLang] = useState<Lang>('en'); const [player, setPlayer] = useState<Player>(initial); const [mode, setMode] = useState<'loading' | 'live' | 'demo' | 'error'>('loading'); const [busy, setBusy] = useState(false); const [message, setMessage] = useState(''); const [tick, setTick] = useState(0); const [telegram, setTelegram] = useState<Tg | null>(null); const [celebrate, setCelebrate] = useState(false); const [playing, setPlaying] = useState(false); const [playRequest,setPlayRequest]=useState<PlayRequest>({mode:'story',mission:1});
   const t: Copy = words[lang]; const rtl = lang !== 'en';
   useEffect(() => {
     const tg = window.Telegram?.WebApp || null; setTelegram(tg); tg?.ready(); tg?.expand();
@@ -93,7 +94,7 @@ export default function Home() {
   return <main className="game-shell premium-shell" lang={lang} dir={rtl ? 'rtl' : 'ltr'}>
     <div className="background-stars" aria-hidden="true" />
     <header className="topbar"><div className="logo-lockup"><span className="logo-mark"><Icon name="bolt" size={24} /></span><div><strong>BLU<span className="logo-dot">.</span></strong><small>CITY OF ENERGY</small></div></div><div className="topbar-right"><select className="language-select" aria-label={t.language} value={lang} onChange={e => setLang(e.target.value as Lang)}><option value="en">EN</option><option value="he">עברית</option><option value="ar">عربي</option></select></div></header>
-    {mode === 'loading' ? <div className="loading-state" role="status"><div className="loading-battery"><Icon name="bolt" size={36} /></div><p>{t.loading}</p><div className="loading-line" /></div> : mode === 'error' ? <section className="error-state" role="alert"><BLUCharacter low /><h1>{t.connectionError}</h1>{connectionCode && <p dir="ltr" style={{ textAlign: 'center', fontFamily: 'monospace', fontSize: 14, overflowWrap: 'anywhere' }}>BLU: {connectionCode}</p>}<GameButton onClick={() => window.location.reload()}>{t.retry}</GameButton></section> : playing ? <PlayableCity lang={lang} onMenu={() => setPlaying(false)} serverRestored={false} challenge={challenge} onReward={() => { void refreshProgress(); }} /> : <GameHub lang={lang} name={playerName} username={telegram?.initDataUnsafe?.user?.username} live={mode === 'live'} player={player} busy={busy} chargeWait={chargeWait} onPlay={(run=false) => {setChallenge(run);setPlaying(true);}} onShare={share} onCharge={() => { void act('charge'); }} backButton={telegram?.BackButton} />}
+    {mode === 'loading' ? <div className="loading-state" role="status"><div className="loading-battery"><Icon name="bolt" size={36} /></div><p>{t.loading}</p><div className="loading-line" /></div> : mode === 'error' ? <section className="error-state" role="alert"><BLUCharacter low /><h1>{t.connectionError}</h1>{connectionCode && <p dir="ltr" style={{ textAlign: 'center', fontFamily: 'monospace', fontSize: 14, overflowWrap: 'anywhere' }}>BLU: {connectionCode}</p>}<GameButton onClick={() => window.location.reload()}>{t.retry}</GameButton></section> : playing ? <PlayableCity lang={lang} onMenu={() => setPlaying(false)} serverRestored={false} challenge={playRequest.mode==='circuit'} mission={playRequest.mode==='story'?playRequest.mission:undefined} onReward={() => { void refreshProgress(); }} /> : <GameHub lang={lang} name={playerName} username={telegram?.initDataUnsafe?.user?.username} live={mode === 'live'} player={player} busy={busy} chargeWait={chargeWait} onPlay={request => {if(request.mode==='story'&&request.mission!==unlockedLevel(getProgress()))return;setPlayRequest(request);setPlaying(true);}} onShare={share} onCharge={() => { void act('charge'); }} backButton={telegram?.BackButton} />}
     {message && <div className="toast" role="status" onClick={() => setMessage('')}><Icon name="spark" size={18} />{message}</div>}
   </main>;
 }
