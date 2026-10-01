@@ -24,11 +24,13 @@ function Wallet({ lang }: { lang: Lang }) {
   const [refresh, setRefresh] = useState(0), [enabled, setEnabled] = useState<boolean | null>(null), [requests, setRequests] = useState<Withdrawal[]>([]);
   const [amount, setAmount] = useState('1'), [confirmed, setConfirmed] = useState(false), [busy, setBusy] = useState(false), [message, setMessage] = useState('');
   const [restoring,setRestoring]=useState(false);
+  const [submittedId, setSubmittedId] = useState<string | null>(null);
+  const requestStates = useRef(new Map<string, Withdrawal['status']>());
   const [balanceError,setBalanceError]=useState('');
   const pending = useRef<{ id: string; address: string; amount: number } | null>(null);
   const address = wallet?.account.address, network = wallet?.account.chain, correct = network === TON_TESTNET;
   useEffect(() => { if(restored&&!wallet)ui.setConnectionNetwork(CHAIN.TESTNET); }, [ui,wallet,restored]);
-  useEffect(() => { setConfirmed(false); setMessage(''); }, [address, correct]);
+  useEffect(() => { setConfirmed(false); setMessage(''); setSubmittedId(null); }, [address, correct]);
   useEffect(() => {
     setBalance(null); setBalanceError('');
     if (!address || !correct) { setBalanceState('idle'); return; }
@@ -37,11 +39,39 @@ function Wallet({ lang }: { lang: Lang }) {
     return () => abort.abort();
   }, [address, correct, refresh]);
   useEffect(() => {
-    let active = true;
-    if (sync !== 'cloud') { setEnabled(false); return; }
-    api({ action: 'status' }).then(d => { if (active) { setEnabled(d.enabled); setRequests(d.requests); } }).catch(() => { if (active) setEnabled(false); });
-    return () => { active = false; };
+    let active = true, running = false;
+    if (sync !== 'cloud') { setEnabled(false); setRequests([]); return; }
+    async function loadRequests() {
+      if (running || document.visibilityState === 'hidden') return;
+      running = true;
+      try {
+        const data = await api({ action: 'status' });
+        if (!active) return;
+        const rows: Withdrawal[] = data.requests;
+        const completed = rows.some(row =>
+          (row.status === 'confirmed' || row.status === 'refunded') &&
+          requestStates.current.has(row.id) && requestStates.current.get(row.id) !== row.status);
+        requestStates.current = new Map(rows.map(row => [row.id, row.status]));
+        setEnabled(data.enabled); setRequests(rows);
+        if (completed) { setRefresh(n => n + 1); void refreshProgress(); }
+      } catch { /* Keep the last known state during a temporary connection failure. */ }
+      finally { running = false; }
+    }
+    void loadRequests();
+    const timer = window.setInterval(() => {
+      if ([...requestStates.current.values()].some(status => status === 'pending' || status === 'processing')) void loadRequests();
+    }, 15000);
+    const onVisible = () => { void loadRequests(); };
+    document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('focus', onVisible);
+    return () => { active = false; window.clearInterval(timer); document.removeEventListener('visibilitychange', onVisible); window.removeEventListener('focus', onVisible); };
   }, [sync, refresh]);
+  const submitted = requests.find(row => row.id === submittedId);
+  const transferMessage = submittedId ? (submitted?.status === 'confirmed'
+    ? (lang === 'he' ? 'ההעברה הושלמה ואושרה בבלוקצ׳יין.' : lang === 'ar' ? 'اكتمل التحويل وتأكد على الشبكة.' : 'Transfer completed and confirmed on chain.')
+    : submitted?.status === 'refunded'
+    ? (lang === 'he' ? 'הבקשה הוחזרה. ה־BLU הוחזר ליתרה במשחק.' : lang === 'ar' ? 'تمت إعادة BLU إلى رصيد اللعبة.' : 'BLU was returned to your game balance.')
+    : submitted?.status === 'processing' ? t.processing : t.queued) : '';
   async function requestTransfer() {
     const count = Number(amount);
     if (busy || !address || !correct || !confirmed || sync !== 'cloud' || !enabled || !Number.isInteger(count) || count < 1 || count > 10) return;
@@ -57,7 +87,7 @@ function Wallet({ lang }: { lang: Lang }) {
       }
       await api({ action: 'request', address, network, amount: count, requestId: pending.current.id });
       sessionStorage.removeItem(retryKey);
-      pending.current = null; setMessage(t.queued); setConfirmed(false);
+      setSubmittedId(pending.current.id); pending.current = null; setMessage(''); setConfirmed(false);
       await refreshProgress(); setRefresh(n => n + 1);
     } catch (error) {
       const code = error instanceof Error ? error.message : '';
@@ -76,6 +106,7 @@ function Wallet({ lang }: { lang: Lang }) {
       <p>{t.manual}</p>{wallet && correct && <><label>{t.amount}<input type="number" min="1" max="10" step="1" value={amount} disabled={busy} onChange={e => { setAmount(e.target.value); setConfirmed(false); }} /></label><p>{t.destination}</p><p className="ton-address" dir="ltr">{address}</p><label className="ton-confirm"><input type="checkbox" checked={confirmed} disabled={busy} onChange={e => setConfirmed(e.target.checked)} />{t.confirm}</label><button className="hub-button" disabled={!confirmed || busy || !Number.isInteger(Number(amount)) || Number(amount) < 1 || Number(amount) > 10} onClick={() => { void requestTransfer(); }}>{busy ? '…' : t.request}</button></>}
       {requests.length > 0 && <><h3>{t.history}</h3><ul>{requests.map(r => <li key={r.id}><span>{r.amount} BLU · {t[r.status]}</span>{r.tx_hash && <a href={`https://testnet.tonviewer.com/transaction/${encodeURIComponent(r.tx_hash)}`} target="_blank" rel="noreferrer"> ↗</a>}</li>)}</ul></>}
     </>}
+    {transferMessage && <p role="status">{transferMessage}</p>}
     {message && <p role="status">{message}</p>}
   </section>;
 }
