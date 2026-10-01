@@ -25,7 +25,7 @@ function Wallet({ lang }: { lang: Lang }) {
   const [amount, setAmount] = useState('1'), [confirmed, setConfirmed] = useState(false), [busy, setBusy] = useState(false), [message, setMessage] = useState('');
   const pending = useRef<{ id: string; address: string; amount: number } | null>(null);
   const address = wallet?.account.address, network = wallet?.account.chain, correct = network === TON_TESTNET;
-  useEffect(() => { ui.setConnectionNetwork(CHAIN.TESTNET); }, [ui]);
+  useEffect(() => { if(!wallet)ui.setConnectionNetwork(CHAIN.TESTNET); }, [ui,wallet]);
   useEffect(() => { setConfirmed(false); setMessage(''); }, [address, correct]);
   useEffect(() => {
     setBalance(null);
