@@ -23,9 +23,10 @@ function Wallet({ lang }: { lang: Lang }) {
   const [balance, setBalance] = useState<string | null>(null), [balanceState, setBalanceState] = useState('idle');
   const [refresh, setRefresh] = useState(0), [enabled, setEnabled] = useState<boolean | null>(null), [requests, setRequests] = useState<Withdrawal[]>([]);
   const [amount, setAmount] = useState('1'), [confirmed, setConfirmed] = useState(false), [busy, setBusy] = useState(false), [message, setMessage] = useState('');
+  const [restoring,setRestoring]=useState(false);
   const pending = useRef<{ id: string; address: string; amount: number } | null>(null);
   const address = wallet?.account.address, network = wallet?.account.chain, correct = network === TON_TESTNET;
-  useEffect(() => { if(!wallet)ui.setConnectionNetwork(CHAIN.TESTNET); }, [ui,wallet]);
+  useEffect(() => { if(restored&&!wallet)ui.setConnectionNetwork(CHAIN.TESTNET); }, [ui,wallet,restored]);
   useEffect(() => { setConfirmed(false); setMessage(''); }, [address, correct]);
   useEffect(() => {
     setBalance(null);
@@ -64,6 +65,7 @@ function Wallet({ lang }: { lang: Lang }) {
   }
   return <section className="hub-card ton-wallet-panel" aria-label={t.title}>
     <div className="hub-card-top"><h2>{t.title}</h2><span className="hub-state">TESTNET</span></div><p>{t.test}</p>
+    {!wallet&&<button className="hub-button secondary" disabled={restoring} onClick={async()=>{setRestoring(true);try{await ui.connector.restoreConnection();if(!ui.connector.connected)setMessage(lang==='he'?'לא נמצא חיבור קודם. לחץ על חבר ארנק בדיקה.':lang==='ar'?'لا يوجد اتصال سابق. اربط المحفظة من جديد.':'No previous connection found. Connect a test wallet.');}catch{setMessage(t.failure);}finally{setRestoring(false);}}}>{restoring?'…':lang==='he'?'שחזר חיבור קודם':lang==='ar'?'استعادة الاتصال السابق':'Restore previous connection'}</button>}
     {!wallet ? <button className="hub-button" disabled={!restored} onClick={() => { ui.openModal().catch(() => setMessage(t.failure)); }}>{restored?t.connect:lang==='he'?'משחזר חיבור לארנק…':lang==='ar'?'جاري استعادة اتصال المحفظة…':'Restoring wallet connection…'}</button> : <>
       <p className="ton-address" dir="ltr">{address}</p><button className="hub-button secondary" onClick={() => { ui.disconnect().catch(() => setMessage(t.failure)); }}>{t.disconnect}</button>
       {!correct ? <p role="alert">{t.wrong}</p> : <><p>{t.balance}: <strong dir="ltr">{balanceState === 'loading' ? t.loading : balance === null ? '—' : `${balance} BLU`}</strong></p>{balanceState === 'error' && <p role="alert">{t.error}</p>}<button className="hub-button secondary" disabled={balanceState === 'loading'} onClick={() => setRefresh(n => n + 1)}>{t.refresh}</button></>}
@@ -78,5 +80,5 @@ function Wallet({ lang }: { lang: Lang }) {
 }
 export default function TonWalletPanel({ lang }: { lang: Lang }) {
   const manifestUrl = `${window.location.origin}/tonconnect-manifest.json`;
-  return <TonConnectUIProvider manifestUrl={manifestUrl} actionsConfiguration={{twaReturnUrl:"https://t.me/BluCityGame_bot?startapp"}}><Wallet lang={lang} /></TonConnectUIProvider>;
+  return <TonConnectUIProvider manifestUrl={manifestUrl} restoreConnection={false} actionsConfiguration={{twaReturnUrl:"https://t.me/BluCityGame_bot?startapp"}}><Wallet lang={lang} /></TonConnectUIProvider>;
 }

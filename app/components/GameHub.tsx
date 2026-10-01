@@ -3,9 +3,10 @@
 import Image from 'next/image';
 import dynamic from 'next/dynamic';
 import CoinPacks from './CoinPacks';
+import WalletBoundary from './WalletBoundary';
 import { useProgress, dispatchProgress, getSyncStatus, useSyncStatus, createBrowserLink } from '../../lib/progress-store';
 import { ITEMS, DASH_COST_COINS, unlockedLevel, cityName } from '../../lib/levels';
-const TonWalletPanel=dynamic(()=>import('./TonWalletPanel'),{ssr:false});
+const TonWalletPanel=dynamic(()=>import('./TonWalletPanel'),{ssr:false,loading:()=> <section className="hub-card" role="status">Loading wallet…</section>});
 const WardrobePreview=dynamic(()=>import('./WardrobePreview'),{ssr:false});
 import { useEffect, useRef, useState } from 'react';
 import { claimDailyReward, dailyState, exchangeCoins, upgradeDash, parseLevelProgress, SAVE_KEY, LEVELS, COINS_PER_BLU, DASH_COST_BLU, type LevelProgress, type LevelId } from '../../lib/levels';
@@ -82,7 +83,7 @@ export default function GameHub({ lang, name, username, live, player, busy, char
   return <div className="game-hub">
     <div className="hub-status"><i className={live ? 'live' : ''} />{sync==='cloud'?labels.sync:sync==='saving'?labels.sync+'…':sync==='setup-required'?labels.setup:(sync==='sync-error'||sync==='offline'||sync==='storage-error')?labels.failed:t.local}<button onClick={() => setModal('controls')} aria-label={t.help}><HubIcon name="info" size={17} />{t.help}</button></div>
     <div className="hub-wallet" aria-label="Game currencies"><div className="coin"><HubIcon name="coin" /><span><small>COIN</small><strong>{hydrated ? progress.coins.toLocaleString(lang) : '—'}</strong></span></div><div className="blu"><HubIcon name="upgrades" /><span><small>BLU</small><strong>{hydrated ? progress.blu.toLocaleString(lang) : '—'}</strong></span></div></div>
-    {walletVisited?<div hidden={tab!=='upgrades'}><TonWalletPanel lang={lang} /></div>:tab==='upgrades'&&<GameCard><h2>{lang==='he'?'ארנק BLU':lang==='ar'?'محفظة BLU':'BLU wallet'}</h2><p>{lang==='he'?'TESTNET · לחץ כדי לטעון את הארנק ולשחזר חיבור קיים.':lang==='ar'?'TESTNET · اضغط لتحميل المحفظة واستعادة الاتصال.':'TESTNET · Load the wallet to restore an existing connection.'}</p><HubButton onClick={()=>setWalletVisited(true)}>{lang==='he'?'הצג ארנק':lang==='ar'?'عرض المحفظة':'Show wallet'}</HubButton></GameCard>}
+    {walletVisited?<div hidden={tab!=='upgrades'}><WalletBoundary lang={lang}><TonWalletPanel lang={lang} /></WalletBoundary></div>:tab==='upgrades'&&<GameCard><h2>{lang==='he'?'ארנק BLU':lang==='ar'?'محفظة BLU':'BLU wallet'}</h2><p>{lang==='he'?'TESTNET · לחץ כדי לטעון את הארנק ולשחזר חיבור קיים.':lang==='ar'?'TESTNET · اضغط لتحميل المحفظة واستعادة الاتصال.':'TESTNET · Load the wallet to restore an existing connection.'}</p><HubButton onClick={()=>setWalletVisited(true)}>{lang==='he'?'הצג ארנק':lang==='ar'?'عرض المحفظة':'Show wallet'}</HubButton></GameCard>}
     <div key={tab} className="hub-screen">
       {tab === 'home' && <>
         <section className={`hub-hero ${progress.restored ? 'powered' : ''}`}><div className="hub-city-silhouette" aria-hidden="true">{[32, 65, 45, 95, 58, 110, 75, 48, 88].map((height, i) => <i key={i} style={{ height: `${height}px` }} />)}</div><span className="hub-zone"><i />{cityLabel}</span><p className="hub-greeting">{t.hello} {name}</p><h1>{t.title}</h1><p className="hub-hero-intro">{t.intro}</p><div className="hub-mascot"><span /><Image src="/blu.webp" alt="BLU" width={300} height={300} priority /></div><div className="hub-hero-bottom"><span>{t.missions} {active} · {missionNames[active - 1]}</span><HubButton onClick={()=>onPlay({mode:'story',mission:active})}>{done === 6 ? t.explore : progress.cells.some(Boolean) || progress.restored ? t.resume : t.play}</HubButton></div></section>
