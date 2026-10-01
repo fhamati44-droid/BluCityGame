@@ -16,5 +16,5 @@ for(let id=1;id<=6;id++){
 }
 console.log('PASS: fresh guest home and missions 1–6 launch story; only circuit button launches circuit; click event never becomes game mode');
 
-buttons=render();buttons.find(b=>text(b)==='BLU').props.onClick(event);render();assert.equal(walletMarkers.length,1);assert.equal(walletMarkers[0].hidden,false);assert.equal(walletMarkers[0].keys.length,0);buttons=render();buttons.find(b=>text(b)==='Home').props.onClick(event);render();assert.equal(walletMarkers.length,1);assert.equal(walletMarkers[0].hidden,true);assert.equal(walletMarkers[0].keys.length,0);
+buttons=render();buttons.find(b=>text(b)==='BLU').props.onClick(event);buttons=render();assert.equal(walletMarkers.length,0,'Opening BLU must not initialize the wallet SDK');buttons.find(b=>text(b)==='Show wallet').props.onClick(event);render();assert.equal(walletMarkers.length,1);assert.equal(walletMarkers[0].hidden,false);assert.equal(walletMarkers[0].keys.length,0);buttons=render();buttons.find(b=>text(b)==='Home').props.onClick(event);render();assert.equal(walletMarkers.length,1);assert.equal(walletMarkers[0].hidden,true);assert.equal(walletMarkers[0].keys.length,0);
 console.log('PASS: wallet is initialized lazily and retained outside tab remounts');
