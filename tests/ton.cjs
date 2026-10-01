@@ -6,7 +6,7 @@ const {PGlite} = require('@electric-sql/pglite');
 function load(file, mocks={}) {
   const module={exports:{}};
   const code=ts.transpileModule(fs.readFileSync(file,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2020}}).outputText;
-  vm.runInNewContext(code,{module,exports:module.exports,require:n=>mocks[n]||require(n),process,Buffer,console});
+  vm.runInNewContext(code,{module,exports:module.exports,require:n=>mocks[n]||require(n),process,Buffer,console,setTimeout});
   return module.exports;
 }
 (async()=>{
@@ -22,6 +22,9 @@ function load(file, mocks={}) {
   async runMethod(address,method){return{stack:method==='get_wallet_address'?{readAddress:()=>fakeOwner}:{readBigNumber:()=>BigInt('999990000000000'),readAddress:(()=>{let n=0;return()=>n++===0?fakeOwner:fakeMaster})()}}}
   async getContractState(){return{state:contractState}}
  }}});
+ assert.equal(balanceRoute.balanceFailure({response:{status:429}}),'BALANCE_RPC_RATE_LIMIT');
+ assert.equal(balanceRoute.balanceFailure({response:{status:401}}),'BALANCE_RPC_AUTH_FAILED');
+ assert.equal(balanceRoute.balanceFailure({code:'ECONNABORTED'}),'BALANCE_RPC_TIMEOUT');
  const balanceRequest={nextUrl:{searchParams:new URLSearchParams({address:fakeOwner.toRawString()})}};
  assert.equal((await balanceRoute.GET(balanceRequest)).data.balance,'999990');
  contractState='uninitialized';assert.equal((await balanceRoute.GET(balanceRequest)).data.balance,'0');contractState='active';

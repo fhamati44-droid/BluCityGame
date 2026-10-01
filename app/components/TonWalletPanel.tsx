@@ -24,15 +24,16 @@ function Wallet({ lang }: { lang: Lang }) {
   const [refresh, setRefresh] = useState(0), [enabled, setEnabled] = useState<boolean | null>(null), [requests, setRequests] = useState<Withdrawal[]>([]);
   const [amount, setAmount] = useState('1'), [confirmed, setConfirmed] = useState(false), [busy, setBusy] = useState(false), [message, setMessage] = useState('');
   const [restoring,setRestoring]=useState(false);
+  const [balanceError,setBalanceError]=useState('');
   const pending = useRef<{ id: string; address: string; amount: number } | null>(null);
   const address = wallet?.account.address, network = wallet?.account.chain, correct = network === TON_TESTNET;
   useEffect(() => { if(restored&&!wallet)ui.setConnectionNetwork(CHAIN.TESTNET); }, [ui,wallet,restored]);
   useEffect(() => { setConfirmed(false); setMessage(''); }, [address, correct]);
   useEffect(() => {
-    setBalance(null);
+    setBalance(null); setBalanceError('');
     if (!address || !correct) { setBalanceState('idle'); return; }
     const abort = new AbortController(); setBalanceState('loading');
-    fetch(`/api/ton/balance?address=${encodeURIComponent(address)}`, { signal: abort.signal }).then(async r => { if (!r.ok) throw Error(); return r.json(); }).then(d => { if (!abort.signal.aborted) { setBalance(d.balance); setBalanceState('ready'); } }).catch(() => { if (!abort.signal.aborted) setBalanceState('error'); });
+    fetch(`/api/ton/balance?address=${encodeURIComponent(address)}`, { signal: abort.signal }).then(async r => { const data=await r.json(); if (!r.ok) throw Error(data.code||'BALANCE_UNAVAILABLE'); return data; }).then(d => { if (!abort.signal.aborted) { setBalance(d.balance); setBalanceState('ready'); } }).catch(error => { if (!abort.signal.aborted) {setBalanceState('error');setBalanceError(error instanceof Error&&/^BALANCE_[A-Z_]+$/.test(error.message)?error.message:'BALANCE_UNAVAILABLE');} });
     return () => abort.abort();
   }, [address, correct, refresh]);
   useEffect(() => {
@@ -68,7 +69,7 @@ function Wallet({ lang }: { lang: Lang }) {
     {!wallet&&<button className="hub-button secondary" disabled={restoring} onClick={async()=>{setRestoring(true);try{await ui.connector.restoreConnection();if(!ui.connector.connected)setMessage(lang==='he'?'לא נמצא חיבור קודם. לחץ על חבר ארנק בדיקה.':lang==='ar'?'لا يوجد اتصال سابق. اربط المحفظة من جديد.':'No previous connection found. Connect a test wallet.');}catch{setMessage(t.failure);}finally{setRestoring(false);}}}>{restoring?'…':lang==='he'?'שחזר חיבור קודם':lang==='ar'?'استعادة الاتصال السابق':'Restore previous connection'}</button>}
     {!wallet ? <button className="hub-button" disabled={!restored} onClick={() => { ui.openModal().catch(() => setMessage(t.failure)); }}>{restored?t.connect:lang==='he'?'משחזר חיבור לארנק…':lang==='ar'?'جاري استعادة اتصال المحفظة…':'Restoring wallet connection…'}</button> : <>
       <p className="ton-address" dir="ltr">{address}</p><button className="hub-button secondary" onClick={() => { ui.disconnect().catch(() => setMessage(t.failure)); }}>{t.disconnect}</button>
-      {!correct ? <p role="alert">{t.wrong}</p> : <><p>{t.balance}: <strong dir="ltr">{balanceState === 'loading' ? t.loading : balance === null ? '—' : `${balance} BLU`}</strong></p>{balanceState === 'error' && <p role="alert">{t.error}</p>}<button className="hub-button secondary" disabled={balanceState === 'loading'} onClick={() => setRefresh(n => n + 1)}>{t.refresh}</button></>}
+      {!correct ? <p role="alert">{t.wrong}</p> : <><p>{t.balance}: <strong dir="ltr">{balanceState === 'loading' ? t.loading : balance === null ? '—' : `${balance} BLU`}</strong></p>{balanceState === 'error' && <p role="alert">{t.error} <span dir="ltr">{balanceError}</span></p>}<button className="hub-button secondary" disabled={balanceState === 'loading'} onClick={() => setRefresh(n => n + 1)}>{t.refresh}</button></>}
     </>}
     <p>{t.internal}</p><a href={`https://testnet.tonviewer.com/${BLU_JETTON_MASTER}`} target="_blank" rel="noreferrer">{t.explorer}</a>
     {sync !== 'cloud' ? <p>{t.cloud}</p> : enabled === null ? <p>{t.checking}</p> : !enabled ? <p>{t.unavailable}</p> : <>

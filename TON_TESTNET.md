@@ -59,3 +59,19 @@ If a signed message expires without a verified credit, the oldest request blocks
 Full live test remains required: connect wallet, earn/convert internal BLU, reserve 1 BLU, observe the worker dispatch, verify the recipient balance and chain transaction, and verify repeated scheduler calls do not pay twice. The automated unit/SQL tests cannot substitute for this chain test.
 
 Mainnet remains disabled. The game currently accepts client-reported objective collection, so authoritative gameplay validation and reward limits must be implemented before funding withdrawals with real assets. Mainnet also requires a separately deployed/audited BLU master, a dedicated treasury, tested fee funding and operator recovery procedures.
+
+## Activating the first automatic withdrawal
+
+In Vercel Project Settings → Environment Variables, Production, configure these as private server variables (never NEXT_PUBLIC):
+
+- `TONCENTER_TESTNET_API_KEY`: a valid testnet Toncenter API key.
+- `BLU_TESTNET_TREASURY_MNEMONIC`: the dedicated testnet V4 treasury recovery phrase; enter it directly in Vercel, not chat or GitHub.
+- `BLU_TESTNET_TREASURY_ADDRESS`: the matching V4 treasury address.
+- `CRON_SECRET`: a random secret used by the authenticated scheduler.
+- Initially keep both `BLU_TESTNET_WITHDRAWALS_ENABLED` and `BLU_TESTNET_PAYOUTS_ENABLED` set to `false`.
+
+Fund the treasury with testnet BLU and testnet TON for fees; the worker requires at least 0.15 TON before a new payment. Apply both withdrawal/payout SQL migrations. Configure a scheduler for `GET https://blu-city-game.vercel.app/api/ton/payouts` with `Authorization: Bearer <CRON_SECRET>` every minute. Vercel minute cron requires a suitable plan; verify the plan before adding a minute cron to vercel.json. An external authenticated scheduler can also be used.
+
+Once the treasury, migrations and scheduler are ready, set both enable flags to `true` and redeploy. Request 1 BLU through the Telegram cloud profile; verify pending → processing → confirmed, a recipient credit, and no duplicate payment when the scheduler runs again. Do not enable acceptance before dispatch is ready.
+
+Balance failures now show a safe diagnostic code. `BALANCE_RPC_RATE_LIMIT` means the RPC rejected traffic; `BALANCE_RPC_AUTH_FAILED` means the server RPC credential was rejected; `BALANCE_RPC_TIMEOUT` means the provider did not respond in time. A read error remains unavailable rather than zero. Only rate-limit errors are automatically retried once; token owner/master verification remains mandatory.
