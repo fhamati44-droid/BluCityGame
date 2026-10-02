@@ -1,0 +1,73 @@
+// Integration of real API handlers and PostgreSQL migrations; no production data.
+const fs=require('node:fs'),vm=require('node:vm'),ts=require('typescript');
+const assert=require('node:assert/strict'),{randomUUID}=require('node:crypto');
+const {PGlite}=require('@electric-sql/pglite');
+function load(file,mocks={}){
+ const module={exports:{}};
+ const code=ts.transpileModule(fs.readFileSync(file,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2020}}).outputText;
+ vm.runInNewContext(code,{module,exports:module.exports,require:n=>mocks[n]||require(n),process,Buffer,Date,Math,Set,Number,JSON,Array});
+ return module.exports;
+}
+(async()=>{
+ const db=new PGlite();
+ const previous=process.env.BLU_TESTNET_WITHDRAWALS_ENABLED;
+ try{
+ await db.exec('create role anon; create role authenticated; create role service_role;');
+ for(const file of ['schema','progression_v3','ton_testnet','ton_payouts'])await db.exec(fs.readFileSync(`supabase/${file}.sql`,'utf8'));
+ await db.exec("insert into blu_players(telegram_id,display_name) values(101,'Journey'),(202,'Other');");
+ const g=load('lib/levels.ts'),config=load('lib/ton-config.ts');
+ const adapter={
+  from(table){
+   assert.ok(['blu_players','blu_testnet_withdrawals'].includes(table));
+   let column,value;
+   const query={select(){return query;},eq(c,v){column=c;value=v;return query;},order(){return query;},
+    async maybeSingle(){const result=await db.query(`select city_save,city_revision,sparks from ${table} where telegram_id=$1`,[value]);return{data:result.rows[0]||null,error:null};},
+    async limit(n){assert.equal(column,'telegram_id');const result=await db.query(`select id,amount,status,tx_hash,created_at from ${table} where telegram_id=$1 order by created_at desc limit $2`,[value,n]);return{data:result.rows,error:null};}};
+   return query;
+  },
+  async rpc(name,args){
+   try{
+    let result;
+    if(name==='blu_store_command')result=await db.query('select blu_store_command($1,$2,$3,$4) as result',[args.p_user,args.p_revision,args.p_command,JSON.stringify(args.p_save)]);
+    else if(name==='blu_request_testnet_withdrawal')result=await db.query('select blu_request_testnet_withdrawal($1,$2,$3,$4) as result',[args.p_user,args.p_id,args.p_amount,args.p_destination]);
+    else throw Error(`Unexpected RPC: ${name}`);
+    return{data:result.rows[0].result,error:null};
+   }catch(error){return{data:null,error:{message:error.message,code:error.code}};}
+  }
+ };
+ const mocks={'next/server':{NextResponse:{json:(data,options={})=>({data,status:options.status||200})}},'@/lib/game-server':{database:()=>adapter,identity:r=>r.user?{id:r.user}:null},'@/lib/levels':g,'@/lib/ton-config':config};
+ const progress=load('app/api/progress/route.ts',mocks),withdrawal=load('app/api/ton/withdrawals/route.ts',mocks);
+ const origin='https://blu.example';
+ const request=(user,body)=>({user,headers:new Headers({origin}),nextUrl:{origin},json:async()=>body});
+ const open=async(user=101)=>{const result=await progress.POST(request(user,{action:'open'}));assert.equal(result.status,200);return result.data;};
+ let saved=await open();assert.equal(saved.progress.coins,0);assert.equal(g.unlockedLevel(saved.progress),1);
+ const command=async(c)=>{const result=await progress.POST(request(101,{action:'command',revision:saved.revision,commandId:randomUUID(),command:{...c,cityLevel:saved.progress.cityLevel}}));assert.equal(result.status,200);saved=result.data;return saved.progress;};
+ for(const mission of g.LEVELS){
+  await command({type:'finish',id:mission.id});assert.equal(saved.progress.completed.length,mission.id-1,'Cannot finish before collecting');
+  for(let index=0;index<mission.required;index++)await command({type:'collect',id:mission.id,index});
+  await command({type:'finish',id:mission.id});
+  const balance=saved.progress.coins;await command({type:'finish',id:mission.id});assert.equal(saved.progress.coins,balance,'No repeated reward');
+  const reopened=await open();assert.equal(reopened.progress.completed.length,mission.id,'Mission survives reopening');
+ }
+ assert.equal(saved.progress.coins,1230);assert.equal(saved.progress.restored,true);
+ await command({type:'buy',id:'shoes'});await command({type:'buy',id:'gloves'});await command({type:'buy',id:'battery'});await command({type:'buy',id:'neon'});await command({type:'dash'});
+ assert.equal(saved.progress.coins,440);assert.equal(saved.progress.skin,'neon');assert.equal(saved.progress.dashLevel,1);
+ await command({type:'exchange'});await command({type:'exchange'});assert.equal(saved.progress.coins,240);assert.equal(saved.progress.blu,2);
+ process.env.BLU_TESTNET_WITHDRAWALS_ENABLED='true';
+ const address='0:8e99a37361bfad147090f5e39643043fbd806def35d92a92e5225bb87b3ca9c2';
+ const body={action:'request',network:'-3',amount:2,address,requestId:randomUUID()};
+ const reserved=await withdrawal.POST(request(101,body));assert.equal(reserved.status,200);
+ assert.equal((await withdrawal.POST(request(101,body))).status,200,'Retry is idempotent');
+ const fresh=await open();assert.equal(fresh.progress.blu,0);assert.equal(fresh.revision,saved.revision+1);
+ const stale=await progress.POST(request(101,{action:'command',revision:saved.revision,commandId:randomUUID(),command:{type:'next-city',cityLevel:1}}));assert.equal(stale.status,409,'Stale save cannot overwrite reserved funds');
+ saved=fresh;await command({type:'next-city'});assert.equal(saved.progress.cityLevel,2);assert.equal(saved.progress.completed.length,0);assert.equal(saved.progress.skin,'neon');assert.equal(saved.progress.inventory.length,4);assert.equal(saved.progress.coins,240);assert.equal(saved.progress.blu,0);
+ await command({type:'collect',id:1,index:0});const reopened=await open();assert.equal(reopened.progress.objectives[1][0],true);assert.equal(reopened.progress.cityLevel,2);
+ const other=await open(202);assert.equal(other.progress.coins,0);assert.equal(other.progress.cityLevel,1);assert.equal(other.progress.inventory.length,0);
+ assert.equal((await withdrawal.POST(request(202,{action:'status'}))).data.requests.length,0,'Requests stay private to each account');
+ const pending=await withdrawal.POST(request(101,{action:'status'}));assert.equal(pending.data.requests.length,1);assert.equal(pending.data.requests[0].status,'pending');
+ // Chain verification itself is covered in ton.cjs; simulate its persisted result here.
+ await db.query("update blu_testnet_withdrawals set status='confirmed',tx_hash='verified-chain-proof' where id=$1",[body.requestId]);
+ const confirmed=await withdrawal.POST(request(101,{action:'status'}));assert.equal(confirmed.data.requests[0].status,'confirmed');assert.equal(confirmed.data.requests[0].tx_hash,'verified-chain-proof');
+ console.log('PASS: real API + SQL journey: new account, six missions, persisted checkpoints, equipment, dash, conversion, withdrawal retry, revision conflict, city 2, account isolation and confirmed status');
+ }finally{if(previous===undefined)delete process.env.BLU_TESTNET_WITHDRAWALS_ENABLED;else process.env.BLU_TESTNET_WITHDRAWALS_ENABLED=previous;await db.close();}
+})().catch(error=>{console.error(error);process.exitCode=1;});
