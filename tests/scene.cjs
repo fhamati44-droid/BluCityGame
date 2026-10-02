@@ -8,14 +8,14 @@ class Renderer{constructor(){this.domElement=element();}setPixelRatio(){}setSize
 class Rig{constructor(){this.root=new THREE.Group();}update(){}setEnergy(){}setEquipment(){}jump(){}land(){}dispose(){}}
 let rejectFinish=false;
 const store={useWalletTesting:()=>false,setMissionPosition(){},getProgress:()=>progress,getSyncStatus:()=> 'device',dispatchProgress:c=>(progress=rejectFinish&&c.type==='finish'?progress:g.applyCommand(progress,c,clock)),checkpointProgress:s=>{for(const l of g.LEVELS){const flags=l.id===1?s.cells:l.id===2?s.metro:s.objectives[l.id];flags.forEach((v,i)=>{if(v)progress=g.applyCommand(progress,{type:'collect',id:l.id,index:i},clock);});if(l.id===1?s.restored:l.id===2?s.metroDone:s.completed.includes(l.id))progress=g.applyCommand(progress,{type:'finish',id:l.id},clock);}return progress;}};
-let source=fs.readFileSync('app/components/PlayableCity.tsx','utf8');source=source.replace('const key = new Set<string>();','globalThis.sceneTest={state,input:input.current,camera};const key = new Set<string>();');
+let source=fs.readFileSync('app/components/PlayableCity.tsx','utf8');source=source.replace('const key = new Set<string>();','globalThis.sceneTest={state,input:input.current,camera,worldScale,blu,cameraBlockers};const key = new Set<string>();');
 const out=ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2020,jsx:ts.JsxEmit.ReactJSX}}).outputText;const mod={exports:{}};const ctx={exports:mod.exports,module:mod,require:n=>n.includes("i18n")?require("./i18n-helper.cjs"):n==='react'?react:n==='three'?new Proxy(THREE,{get:(o,k)=>k==='WebGLRenderer'?Renderer:o[k]}):n==='./BluRig'?{BluRig:Rig,toon:c=>new THREE.MeshToonMaterial({color:c})}:n.includes('progress-store')?store:n.includes('levels')?g:require(n),document:{hidden:false,createElement:element},window:{addEventListener(){},removeEventListener(){}},navigator:{vibrate(){}},localStorage:{getItem(){return null;}},performance:{now:()=>clock},devicePixelRatio:1,ResizeObserver:class{constructor(fn){this.fn=fn;}observe(){this.fn();}disconnect(){}},requestAnimationFrame:fn=>(frame=fn,1),cancelAnimationFrame(){},Date,Math,Array,Set,JSON,Number};vm.createContext(ctx);vm.runInContext(out,ctx);mod.exports.default({lang:'en',onMenu(){},onReward(){},serverRestored:false});effects[0]();const scene=ctx.sceneTest;
 const tick=(n=1)=>{for(let i=0;i<n;i++){clock+=40;frame();}};scene.input.start=true;tick();
 // Keep the character inside the unobstructed center of portrait screens.
 for(const [x,z,y] of [[-35,-20,0],[35,-20,0],[0,-50,7]]){
  scene.state.pos.set(x,y,z);scene.state.vy=0;tick(20);
  scene.camera.updateMatrixWorld();
- const projected=scene.state.pos.clone().add(new THREE.Vector3(0,1,0)).project(scene.camera);
+ const projected=new THREE.Vector3(scene.state.pos.x*scene.worldScale,scene.state.pos.y+1,scene.state.pos.z*scene.worldScale).project(scene.camera);
  assert.ok(Math.abs(projected.x)<.6 && Math.abs(projected.y)<.6,'BLU must stay centered at side streets and roof height');
 }
 const visit=(x,z,y=0)=>{scene.state.pos.set(x,y,z);scene.state.vy=0;tick(2);};
@@ -40,3 +40,17 @@ clock=Math.max(clock,60001);effects=[];refs=[];mod.exports.default({lang:'en',on
 
 let previewEffects=[],previewGpu=0;const previewReact={useRef:()=>({current:element()}),useState:v=>[v,()=>{}],useEffect:fn=>previewEffects.push(fn)};
 const Preview=load('app/components/WardrobePreview.tsx',n=>n.includes('i18n')?require('./i18n-helper.cjs'):n==='react'?previewReact:n==='three'?new Proxy(THREE,{get:(o,k)=>k==='WebGLRenderer'?class{constructor(){previewGpu++;throw Error('GPU unavailable');}}:o[k]}):n==='./BluRig'?{BluRig:Rig}:n.includes('progress-store')?store:require(n),{window:{matchMedia:()=>({matches:true})}}).default;const preview=Preview();assert.equal(preview.props.children[0].type,'img');assert.equal(previewGpu,0,'Touch devices must not create a wardrobe WebGL context');console.log('PASS: mobile wardrobe avoids a second GPU context');
+
+// The city grows, but the character and chase distance stay human sized.
+for(const cityLevel of [1,4,9]){
+ progress={...g.parseLevelProgress(null),cityLevel};effects=[];refs=[];
+ mod.exports.default({lang:'en',onMenu(){},onReward(){},serverRestored:false});effects[0]();
+ const current=ctx.sceneTest;current.input.start=true;tick();current.state.pos.set(12,0,-35);tick(30);
+ current.camera.updateMatrixWorld();
+ const center=new THREE.Vector3(12*current.worldScale,1,-35*current.worldScale).project(current.camera);
+ const top=new THREE.Vector3(12*current.worldScale,2,-35*current.worldScale).project(current.camera);
+ const bottom=new THREE.Vector3(12*current.worldScale,0,-35*current.worldScale).project(current.camera);
+ assert.ok(Math.abs(center.x)<.15&&Math.abs(center.y)<.35,'Scaled cities must track the actual world position');
+ assert.ok(Math.abs(top.y-bottom.y)>.25,'BLU must remain large enough on portrait screens');
+}
+console.log('PASS: world-space camera tracks cities 1, 4 and 9 with consistent visible character size');

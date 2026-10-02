@@ -177,12 +177,13 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored, c
         const unlitColor = new THREE.Color(0x3b3474), litColor = new THREE.Color(0xffe27a);
         const addWindow = (x: number, y: number, z: number, ry: number) => { if (wi >= winCount)
             return; dummy.position.set(x, y, z); dummy.rotation.set(0, ry, 0); dummy.scale.set(1, 1, 1); dummy.updateMatrix(); windowsMesh.setMatrixAt(wi, dummy.matrix); windowsMesh.setColorAt(wi, unlitColor); wi++; };
+        const cameraBlockers: THREE.Mesh[] = [];
         const signs: THREE.Mesh[] = [];
         for (const side of [-1, 1])
             for (let i = 0; i < 13; i++) {
                 const x = side * (24 + (i % 3) * .8), z = 12 - i * 6.9, h = 8 + ((i * 7 + (side + 1) * 5) % 6) * 3, color = PALETTE[(i + (side > 0 ? 3 : 0)) % PALETTE.length];
-                box(6.2, h, 5.6, T(color), x, h / 2, z);
-                box(6.8, .6, 6.2, T(0x2b2f5e), x, h + .3, z);
+                cameraBlockers.push(box(6.2, h, 5.6, T(color), x, h / 2, z));
+                cameraBlockers.push(box(6.8, .6, 6.2, T(0x2b2f5e), x, h + .3, z));
                 box(5.4, .3, 4.8, T(0xfff3e0), x, h + .7, z);
                 if (i % 2) {
                     box(1.4, 1, 1.4, T(0xdfe6ff), x + 1.5, h + 1.3, z - 1);
@@ -462,6 +463,7 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored, c
         const camPos = new THREE.Vector3(1.2, 2, 15.4);
         const look = new THREE.Vector3(0, 1.3, 10);
         const tmpV = new THREE.Vector3();
+        const cameraRay = new THREE.Raycaster(), cameraTarget = new THREE.Vector3(), cameraDirection = new THREE.Vector3();
         const publish = () => {
             const remaining = challenge ? [] : activeLevel === 1 ? cells.filter((_, i) => !found[i]) : activeLevel === 2 ? metroCores.filter((_, i) => !metroFound[i]) : (extra[activeLevel] || []).filter((_, i) => !progress.objectives[activeLevel][i]);
             const target = challenge ? runFinish : activeLevel === 3 && carriedCell !== null ? terminals[3] : activeLevel === 5 && progress.objectives[5].every(Boolean) && !escort ? mechanic.position : remaining.length ? remaining.reduce((best, c) => c.position.distanceTo(state.pos) < best.position.distanceTo(state.pos) ? c : best).position : challenge ? runFinish : activeLevel === 1 ? new THREE.Vector3(0, 0, -35) : activeLevel === 2 ? new THREE.Vector3(-9, 0, -50) : terminals[activeLevel];
@@ -885,13 +887,25 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored, c
                 }
             trail.forEach((o, i) => { o.visible = state.over > 0 || state.dash > 0; o.position.set(state.pos.x - Math.sin(state.yaw) * (.6 + i * .45) + Math.sin(state.time * 12 + i) * .2, state.pos.y + .8 + Math.sin(state.time * 9 + i) * .25, state.pos.z - Math.cos(state.yaw) * (.6 + i * .45)); o.scale.setScalar(.14 - i * .02); });
             // Camera: title shot in front of BLU, then chase camera
-            const desired = playing ? tmpV.set(state.pos.x, state.pos.y + 4.1 + (state.vy > 0 ? .4 : 0), state.pos.z + (state.dash > 0 ? 8.2 : 7.2)) : tmpV.set(state.pos.x + 1.4 + Math.sin(state.time * .3) * .5, 2.1, state.pos.z + 5.6);
+            // Simulation coordinates scale with the city; camera distances do not.
+            const playerX = state.pos.x * worldScale, playerZ = state.pos.z * worldScale;
+            const desired = playing ? tmpV.set(playerX, state.pos.y + 3.2 + (state.vy > 0 ? .3 : 0), playerZ + (state.dash > 0 ? 5.8 : 5.2)) : tmpV.set(playerX + 1.4 + Math.sin(state.time * .3) * .5, 2.1, playerZ + 5.6);
             camPos.lerp(desired, 1 - Math.exp(-(playing ? 10 : 2.5) * dt));
-            const lookGoal = playing ? new THREE.Vector3(state.pos.x, state.pos.y + 1.2, state.pos.z - 1) : new THREE.Vector3(state.pos.x - .9, 1.55, state.pos.z - 4);
+            const lookGoal = playing ? new THREE.Vector3(playerX, state.pos.y + 1.1, playerZ - .4) : new THREE.Vector3(playerX - .9, 1.55, playerZ - 4);
             look.lerp(lookGoal, 1 - Math.exp(-(playing ? 10 : 5) * dt));
             state.shake = Math.max(0, state.shake - dt);
             const sh = state.shake * .5;
             camera.position.set(camPos.x + (Math.random() - .5) * sh, camPos.y + (Math.random() - .5) * sh, camPos.z);
+            if (playing) {
+                world.updateMatrixWorld(true);
+                cameraTarget.set(playerX, state.pos.y + 1.1, playerZ);
+                cameraDirection.copy(camera.position).sub(cameraTarget);
+                const distance = cameraDirection.length();
+                cameraRay.set(cameraTarget, cameraDirection.normalize());
+                cameraRay.far = distance;
+                const obstruction = cameraRay.intersectObjects(cameraBlockers, false)[0];
+                if (obstruction) camera.position.copy(cameraTarget).addScaledVector(cameraDirection, Math.max(.6, obstruction.distance - .35));
+            }
             camera.lookAt(look);
             const fovBase = size.w / size.h < .7 ? 70 : 62;
             camera.fov = THREE.MathUtils.damp(camera.fov, fovBase + (state.dash > 0 || state.over > 0 ? 10 : 0), 5, dt);
@@ -955,7 +969,7 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored, c
       </div>
       <div className="hud-mission">
         <span className="mission-arrow" style={{ transform: `rotate(${status.direction}rad)` }} aria-hidden="true">▲</span>
-        <div><strong>{cityLabel} · {challenge ? (translateValue(lang, lang === 'he' ? 'מסלול האנרגיה' : translateValue(lang, lang === 'ar' ? 'مسار الطاقة' : 'Energy circuit'))) : localized(lang, LEVELS[status.level - 1].names)} · {objective}</strong><small>{challenge ? `${status.bolts}/20 · ${status.runTime}s` : `${got}/${total} · ${status.meters} m`}</small></div>
+        <div><strong>{challenge ? (translateValue(lang, lang === 'he' ? 'מסלול האנרגיה' : translateValue(lang, lang === 'ar' ? 'مسار الطاقة' : 'Energy circuit'))) : localized(lang, LEVELS[status.level - 1].names)}</strong><span className="mission-objective">{objective}</span><small>{challenge ? `${status.bolts}/20 · ${status.runTime}s` : `${got}/${total} · ${status.meters} m`}</small></div>
         {!status.levelDone && !challenge && <div className="pips">{Array.from({ length: total }, (_, i) => <i key={i} className={i < got ? (status.level === 2 ? 'on pink' : 'on') : ''}/>)}</div>}
       </div>
       {(status.sync === "sync-error" || status.sync === "offline" || status.sync === "storage-error") && <div className="play-tutorial" role="alert">{translateValue(lang, lang === "he" ? "שמירת ההתקדמות נכשלה. צא לתפריט ופתח מחדש כדי לנסות לסנכרן" : translateValue(lang, lang === "ar" ? "فشل حفظ التقدم. افتح اللعبة مجددًا لمحاولة المزامنة" : "Progress save failed. Reopen the game to retry sync"))}</div>}
