@@ -2,6 +2,7 @@ import { Address } from '@ton/ton';
 import { NextRequest, NextResponse } from 'next/server';
 import { database, identity } from '@/lib/game-server';
 import { BLU_JETTON_MASTER, TON_TESTNET } from '@/lib/ton-config';
+import {walletTestingAllowed} from '@/lib/beta-access';
 import {PROOF_COOKIE,verifiedWallet} from '@/lib/wallet-proof';
 export const runtime = 'nodejs';
 const reply = (data: unknown, status = 200) => NextResponse.json(data, { status, headers: { 'Cache-Control': 'no-store' } });
@@ -19,6 +20,7 @@ export async function POST(request: NextRequest) {
       const { data, error } = await database().from('blu_testnet_withdrawals').select('id,amount,status,tx_hash,created_at').eq('telegram_id', who.id).order('created_at', { ascending: false }).limit(10);
       return error ? reply({ code: 'MIGRATION_REQUIRED' }, 503) : reply({ enabled, requests: data });
     }
+    if(!walletTestingAllowed(who.id))return reply({code:'TEST_MODE_ONLY'},403);
     if (!enabled) return reply({ code: 'WITHDRAWALS_NOT_CONFIGURED' }, 503);
     if (body.action !== 'request' || body.network !== TON_TESTNET || typeof body.address !== 'string' || body.address.length > 100 || !Number.isSafeInteger(body.amount) || body.amount < 1 || body.amount > 10 || typeof body.requestId !== 'string' || !/^[a-f\d]{8}(-[a-f\d]{4}){3}-[a-f\d]{12}$/i.test(body.requestId)) return reply({ code: 'INVALID_REQUEST' }, 400);
     let address: Address;

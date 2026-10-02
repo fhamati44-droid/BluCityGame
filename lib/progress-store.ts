@@ -2,6 +2,9 @@
 import {useSyncExternalStore} from 'react';
 import {applyCommand,parseLevelProgress,SAVE_KEY,type LevelProgress,type GameCommand,type MissionPosition} from './levels';
 type Pending={id:string;command:GameCommand};
+let walletTesting=false;
+export const getWalletTesting=()=>walletTesting;
+export function useWalletTesting(){return useSyncExternalStore(subscribe,getWalletTesting,()=>false);}
 let missionPosition:MissionPosition|undefined;
 export function setMissionPosition(p:MissionPosition){missionPosition={x:p.x,y:p.y,z:p.z};}
 const empty=parseLevelProgress(null);
@@ -28,7 +31,7 @@ function queue(entry:Pending){pending++;status='saving';notify();tail=tail.then(
  if(status==='sync-error')return;
  try{let{r,d}=await commandRequest({action:'command',revision,command:entry.command,commandId:entry.id});
  if(r.status===409&&Number.isInteger(d.revision)){revision=d.revision;authoritative=parseLevelProgress(JSON.stringify(d.progress));({r,d}=await commandRequest({action:'command',revision,command:entry.command,commandId:entry.id}));}
- if(d.code==='MISSION_INVALID'){outbox=outbox.filter(e=>e.id!==entry.id);journal();return;}
+ if(['MISSION_INVALID','TEST_MODE_ONLY'].includes(d.code)){outbox=outbox.filter(e=>e.id!==entry.id);journal();return;}
  if(!r.ok)throw Error(d.code);revision=d.revision;authoritative=parseLevelProgress(JSON.stringify(d.progress));outbox=outbox.filter(e=>e.id!==entry.id);journal();
  }catch{status='sync-error';notify();}
  }).then(()=>{pending--;if(pending===0&&status!=='sync-error'){state=authoritative;status='cloud';save();}});}
@@ -36,13 +39,14 @@ export async function initializeProgress(initData=''){
  if(initialized)return;initialized=true;auth=initData;
  try{const id=initData?JSON.parse(new URLSearchParams(initData).get('user')||'{}').id:null;key=id?`blu_account_${id}`:SAVE_KEY;state=parseLevelProgress(localStorage.getItem(key));}catch{}notify();
  try{const{r,d}=await request({action:'open'});if(!r.ok){status=d.code==='MIGRATION_REQUIRED'?'setup-required':auth?'offline':'device';notify();return;}
- key=`blu_account_${d.account}`;revision=d.revision;state=parseLevelProgress(JSON.stringify(d.progress));authoritative=state;status='cloud';
+ walletTesting=d.walletTesting===true;key=`blu_account_${d.account}`;revision=d.revision;state=parseLevelProgress(JSON.stringify(d.progress));authoritative=state;status='cloud';
  try{const saved=JSON.parse(localStorage.getItem(key+'_outbox')||'[]');outbox=Array.isArray(saved)?saved.filter(e=>typeof e.id==='string'&&e.command?.type):[];}catch{outbox=[];}save();
  for(const entry of outbox){state=applyCommand(state,entry.command);queue(entry);}save();
  // Guest checkpoints are not proof of a completed cloud mission.
  }catch{status=auth?'offline':'device';notify();}
 }
 export function dispatchProgress(command:GameCommand):LevelProgress{
+ if(!walletTesting&&(command.type==='exchange'||command.type==='dash'&&state.coins<120))return state;
  if(status==='sync-error'||status==='storage-error'||status==='offline')return state;
  if(['mission-start','mission-pickup','mission-charge','mission-escort','collect','finish'].includes(command.type)&&missionPosition)command={...command,position:{...missionPosition}};
  command={...command,cityLevel:command.cityLevel??state.cityLevel};

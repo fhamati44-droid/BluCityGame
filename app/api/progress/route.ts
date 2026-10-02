@@ -1,6 +1,7 @@
 import {NextRequest,NextResponse} from 'next/server';
 import {applyCommand,parseLevelProgress} from '@/lib/levels';
 import {validGameCommand} from '@/lib/command-validation';
+import {walletTestingAllowed} from '@/lib/beta-access';
 import {guardMission} from '@/lib/mission-guard';
 import {progressRateLimit} from '@/lib/progress-rate-limit';
 import {database,identity,newTicket,ticketHash,sessionToken} from '@/lib/game-server';
@@ -33,8 +34,9 @@ export async function POST(request:NextRequest){try{
  if(!row)return reply({code:'PLAYER_NOT_READY'},409);
  const progress= row.city_save?parseLevelProgress(JSON.stringify(row.city_save)):parseLevelProgress(null);
  const revision=row.city_revision||0;
- if(body.action==='open')return reply({progress,revision,account:who.id,paymentsReady:!!process.env.TELEGRAM_WEBHOOK_SECRET&&process.env.BLU_PAYMENTS_ENABLED==='true'});
+ if(body.action==='open')return reply({progress,revision,account:who.id,walletTesting:walletTestingAllowed(who.id),paymentsReady:!!process.env.TELEGRAM_WEBHOOK_SECRET&&process.env.BLU_PAYMENTS_ENABLED==='true'});
  if(body.revision!==revision)return reply({code:'CONFLICT',progress,revision},409);
+ if(!walletTestingAllowed(who.id)&&(body.command.type==='exchange'||body.command.type==='dash'&&progress.coins<120))return reply({code:'TEST_MODE_ONLY'},403);
  const mission=guardMission(row.city_save?._mission,progress,body.command);
  if('code' in mission)return reply({code:mission.code,retryAfterMs:mission.retryAfterMs},mission.code==='MISSION_WAIT'?429:400);
  const next=applyCommand(progress,body.command);

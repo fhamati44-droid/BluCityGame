@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
-import { getProgress, checkpointProgress, dispatchProgress, getSyncStatus, setMissionPosition } from '../../lib/progress-store';
+import { getProgress, checkpointProgress, dispatchProgress, getSyncStatus, useWalletTesting, setMissionPosition } from '../../lib/progress-store';
 import { unlockedLevel, cityScale, cityName } from '../../lib/levels';
 import { BluRig, toon } from './BluRig';
 import { completeLevel, exchangeCoins, upgradeDash, COINS_PER_BLU, DASH_COST_BLU, LEVELS, parseLevelProgress, SAVE_KEY, type LevelId } from '../../lib/levels';
@@ -24,6 +24,7 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored, c
   const [unsupported, setUnsupported] = useState(false); const [paused, setPaused] = useState(false); const pausedRef = useRef(false); pausedRef.current = paused;
   const [started, setStarted] = useState(false); const startedRef = useRef(false);
   const [status, setStatus] = useState<Status>({ completed:[], sync:"device", carrying:false, escorting:false, escortReady:false, nodeReady:false, extraGot:0,levelDone:false,runTime:0,runDone:false,cells: 0, metroCells: 0, energy: 0, meters: 0, direction: 0, restored: false, metroDone: false, level: 1, coins: 0, blu: 0, dashLevel: 0, celebrating: false, nearby: false, overcharge: false, rail: false, secret: false, charge: 0, dashing: false, score: 0, bolts: 0, tutorial: true });
+  const walletTesting=useWalletTesting();
   const t = copy[lang]; const tRef = useRef(t); tRef.current = t;
   const city=getProgress().cityLevel;
   const cityLabel=`Level ${city} · ${cityName(city,lang)}`;
@@ -347,7 +348,7 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored, c
           <button className="btn3d round yellow act-jump" onPointerDown={() => { input.current.jump = true; }}><span>{t.jump}</span></button>
         </div>
       </div>
-      {paused && <div className="play-pause"><div className="pause-card"><h2>{t.pause}</h2>{LEVELS.map(level=><p key={level.id}>{ui.level} {level.id} · {level.names[lang]} {status.completed.includes(level.id)?"✓":level.id===status.level?`${got}/${level.required}`:ui.locked}</p>)}<p>{ui.coins}: {status.coins} · BLU: {status.blu}</p><p>{ui.dash}: {status.dashLevel}/3</p><button className="btn3d yellow" disabled={status.coins < COINS_PER_BLU} onClick={() => { input.current.exchange = true; }}>{ui.exchange}</button><button className="btn3d blue" disabled={status.coins<120&&status.blu < DASH_COST_BLU || status.dashLevel >= 3} onClick={() => { input.current.upgrade = true; }}>{ui.upgrade} / 120 Coin</button><small>{getSyncStatus()==="cloud"?"Cloud save":ui.local}</small><button className="btn3d yellow" onClick={() => setPaused(false)}>{t.continue}</button><button className="btn3d blue" onClick={onMenu}>{t.menu}</button></div></div>}
+      {paused && <div className="play-pause"><div className="pause-card"><h2>{t.pause}</h2>{LEVELS.map(level=><p key={level.id}>{ui.level} {level.id} · {level.names[lang]} {status.completed.includes(level.id)?"✓":level.id===status.level?`${got}/${level.required}`:ui.locked}</p>)}<p>{ui.coins}: {status.coins}{walletTesting?` · BLU: ${status.blu}`:""}</p><p>{ui.dash}: {status.dashLevel}/3</p>{walletTesting&&<button className="btn3d yellow" disabled={status.coins < COINS_PER_BLU} onClick={() => { input.current.exchange = true; }}>{ui.exchange}</button>}<button className="btn3d blue" disabled={status.coins<120&&(!walletTesting||status.blu < DASH_COST_BLU) || status.dashLevel >= 3} onClick={() => { input.current.upgrade = true; }}>{ui.dash} · 120 Coin</button><small>{getSyncStatus()==="cloud"?"Cloud save":ui.local}</small><button className="btn3d yellow" onClick={() => setPaused(false)}>{t.continue}</button><button className="btn3d blue" onClick={onMenu}>{t.menu}</button></div></div>}
     </>}
   </div>;
 }

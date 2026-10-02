@@ -31,3 +31,9 @@
 These changes strengthen the existing Testnet service. They do not establish Mainnet readiness. No new environment variables or SQL migration are required for this hardening pass.
 
 Protocol source: https://github.com/ton-blockchain/ton-connect/blob/main/spec/connect.md#address-proof-signature-ton_proof
+
+## Public beta access
+
+- The normal UI exposes Coin, missions and equipment without a wallet. Wallet initialization, token conversion and the BLU balance are hidden by default; onboarding explains Coin upgrades instead of conversion. The beta notice states that Coin has no cash value and progress does not guarantee future tokens.
+- Server-authenticated tester accounts 660174909 and 8857115965 retain Testnet tools. Private `BLU_TESTER_IDS` can replace this comma-separated list; setting it to an empty string disables all tester access. The client receives only a capability boolean from the authenticated progress endpoint. Query strings, local storage and Telegram usernames do not grant access.
+- Public accounts cannot exchange Coin for BLU or reserve withdrawals via direct API calls. Dash upgrades for public users require Coin rather than consuming historical BLU. Existing balances and payout requests are retained; queued payouts continue to process. This release does not add analytics or a feedback system and does not launch ads.

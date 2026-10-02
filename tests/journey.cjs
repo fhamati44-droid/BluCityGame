@@ -40,7 +40,7 @@ function load(file,mocks={}){
  const validation=load('lib/command-validation.ts',{'./levels':g});
  const missionGuard=load('lib/mission-guard.ts',{'./levels':g});
  const rateLimit=load('lib/progress-rate-limit.ts');
- const mocks={'next/server':{NextResponse:{json:(data,options={})=>({data,status:options.status||200})}},'@/lib/game-server':{database:()=>adapter,identity:r=>r.user?{id:r.user}:null},'@/lib/levels':g,'@/lib/ton-config':config,'@/lib/command-validation':validation,'@/lib/progress-rate-limit':rateLimit,'@/lib/mission-guard':missionGuard,'@/lib/wallet-proof':{PROOF_COOKIE:'proof',verifiedWallet:()=>true}};
+ const mocks={'next/server':{NextResponse:{json:(data,options={})=>({data,status:options.status||200})}},'@/lib/game-server':{database:()=>adapter,identity:r=>r.user?{id:r.user}:null},'@/lib/levels':g,'@/lib/ton-config':config,'@/lib/command-validation':validation,'@/lib/progress-rate-limit':rateLimit,'@/lib/mission-guard':missionGuard,'@/lib/beta-access':{walletTestingAllowed:id=>String(id)==='101'},'@/lib/wallet-proof':{PROOF_COOKIE:'proof',verifiedWallet:()=>true}};
  const progress=load('app/api/progress/route.ts',mocks),withdrawal=load('app/api/ton/withdrawals/route.ts',mocks);
  const origin='https://blu.example';
  const request=(user,body)=>({user,headers:new Headers({origin}),nextUrl:{origin,host:'blu.example'},cookies:{get:()=>undefined},json:async()=>body});
@@ -94,7 +94,10 @@ function load(file,mocks={}){
  const stale=await progress.POST(request(101,{action:'command',revision:saved.revision,commandId:randomUUID(),command:{type:'next-city',cityLevel:1}}));assert.equal(stale.status,409,'Stale save cannot overwrite reserved funds');
  saved=fresh;await command({type:'next-city'});assert.equal(saved.progress.cityLevel,2);assert.equal(saved.progress.completed.length,0);assert.equal(saved.progress.skin,'neon');assert.equal(saved.progress.inventory.length,4);assert.equal(saved.progress.coins,240);assert.equal(saved.progress.blu,0);
  await command({type:'collect',id:1,index:0});const reopened=await open();assert.equal(reopened.progress.objectives[1][0],true);assert.equal(reopened.progress.cityLevel,2);
- const other=await open(202);assert.equal(other.progress.coins,0);assert.equal(other.progress.cityLevel,1);assert.equal(other.progress.inventory.length,0);
+ const other=await open(202);assert.equal(other.walletTesting,false);assert.equal((await open()).walletTesting,true);
+ const publicRevision=other.revision;
+ const denied=await progress.POST(request(202,{action:'command',revision:publicRevision,commandId:randomUUID(),command:{type:'exchange'}}));assert.equal(denied.status,403);assert.equal((await open(202)).revision,publicRevision);
+ assert.equal((await withdrawal.POST(request(202,{...body,requestId:randomUUID()}))).status,403,'Public account cannot reserve Testnet funds');assert.equal(other.progress.coins,0);assert.equal(other.progress.cityLevel,1);assert.equal(other.progress.inventory.length,0);
  assert.equal((await withdrawal.POST(request(202,{action:'status'}))).data.requests.length,0,'Requests stay private to each account');
  const pending=await withdrawal.POST(request(101,{action:'status'}));assert.equal(pending.data.requests.length,1);assert.equal(pending.data.requests[0].status,'pending');
  // Chain verification itself is covered in ton.cjs; simulate its persisted result here.
