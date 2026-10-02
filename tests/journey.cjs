@@ -7,7 +7,7 @@ class ServerDate extends Date{static now(){return serverClock;}}
 function load(file,mocks={}){
  const module={exports:{}};
  const code=ts.transpileModule(fs.readFileSync(file,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2020}}).outputText;
- vm.runInNewContext(code,{module,exports:module.exports,require:n=>mocks[n]||require(n),process,Buffer,Date:ServerDate,Math,Set,Number,JSON,Array});
+ vm.runInNewContext(code,{module,exports:module.exports,require:n=>n.includes("i18n")?require("./i18n-helper.cjs"):mocks[n]||require(n),process,Buffer,Date:ServerDate,Math,Set,Number,JSON,Array});
  return module.exports;
 }
 (async()=>{

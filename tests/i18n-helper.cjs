@@ -1,0 +1,2 @@
+const fs=require('node:fs'),vm=require('node:vm'),ts=require('typescript'),{createRequire}=require('node:module'),path=require('node:path');
+const m={exports:{}};vm.runInNewContext(ts.transpileModule(fs.readFileSync('lib/i18n.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2020,esModuleInterop:true}}).outputText,{module:m,exports:m.exports,require:createRequire(path.resolve('lib/i18n.ts'))});module.exports=m.exports;

@@ -1,5 +1,5 @@
 const fs=require('node:fs'),vm=require('node:vm'),ts=require('typescript'),assert=require('node:assert/strict');
-function load(file,mocks={}){const module={exports:{}};vm.runInNewContext(ts.transpileModule(fs.readFileSync(file,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2020}}).outputText,{module,exports:module.exports,require:n=>mocks[n]||require(n),Date,Math,Set,Array,Number,Object,JSON});return module.exports;}
+function load(file,mocks={}){const module={exports:{}};vm.runInNewContext(ts.transpileModule(fs.readFileSync(file,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2020}}).outputText,{module,exports:module.exports,require:n=>n.includes("i18n")?require("./i18n-helper.cjs"):mocks[n]||require(n),Date,Math,Set,Array,Number,Object,JSON});return module.exports;}
 const g=load('lib/levels.ts'),guard=load('lib/mission-guard.ts',{'./levels':g}),validation=load('lib/command-validation.ts',{'./levels':g});
 let p=g.parseLevelProgress(null),session,now=100000;
 const send=(c,advance=4000)=>{now+=advance;c={...c,cityLevel:p.cityLevel};const r=guard.guardMission(session,p,c,now);if(!r.code){session=r.session;p=g.applyCommand(p,c,now);}return r;};

@@ -1,7 +1,32 @@
 'use client';
-import {useEffect,useState} from 'react';
-import {COIN_PACKS} from '../../lib/coin-packs';
-import {refreshProgress,getSyncStatus} from '../../lib/progress-store';
-export default function CoinPacks({lang,live,onToast}:{lang:'en'|'he'|'ar';live:boolean;onToast:(s:string)=>void}){const[enabled,setEnabled]=useState(false),[busy,setBusy]=useState(false);const t={en:{title:'Coin packs',hint:'Optional. All missions and equipment can be earned by playing',setup:'Purchases are not activated yet',buy:'Buy',telegram:'Open in Telegram to buy',wait:'Payment received. Checking your wallet…'},he:{title:'חבילות Coin',hint:'רכישה לבחירה. אפשר להשיג את כל המשימות והציוד דרך משחק',setup:'הרכישות עדיין לא הופעלו',buy:'קנה',telegram:'פתח בטלגרם כדי לקנות',wait:'התשלום התקבל. בודק את הארנק…'},ar:{title:'حزم Coin',hint:'شراء اختياري. كل المهام والمعدات متاحة باللعب',setup:'الشراء لسه مش مفعّل',buy:'اشترِ',telegram:'افتح بتليجرام للشراء',wait:'تم الدفع. نفحص المحفظة…'}}[lang];useEffect(()=>{fetch('/api/payments/invoice').then(r=>r.json()).then(d=>setEnabled(d.enabled===true)).catch(()=>{});},[]);
-async function buy(pack:string){const tg=window.Telegram?.WebApp;if(!tg?.initData||!tg.openInvoice)return;setBusy(true);try{const r=await fetch('/api/payments/invoice',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({initData:tg.initData,pack})});const d=await r.json();if(!r.ok)throw Error(d.code);tg.openInvoice(d.url,(status:string)=>{setBusy(false);if(status==='paid'){onToast(t.wait);void refreshProgress();setTimeout(()=>void refreshProgress(),1500);setTimeout(()=>void refreshProgress(),4000);} });}catch{setBusy(false);onToast(t.setup);}}
-return <section className="hub-card coin-packs"><h2>{t.title}</h2><p>{t.hint}</p>{COIN_PACKS.map(p=><button className="hub-button secondary" key={p.id} disabled={!enabled||!live||busy||getSyncStatus()!=='cloud'} onClick={()=>void buy(p.id)}><strong>{p.coins} Coin</strong><span>{t.buy} · {p.stars} ★</span></button>)}<small>{!enabled?t.setup:!live?t.telegram:'Telegram Stars · XTR'}</small></section>;}
+import { localized, translateValue, type Lang } from '../../lib/i18n';
+import { useEffect, useState } from 'react';
+import { COIN_PACKS } from '../../lib/coin-packs';
+import { refreshProgress, getSyncStatus } from '../../lib/progress-store';
+export default function CoinPacks({ lang, live, onToast }: {
+    lang: Lang;
+    live: boolean;
+    onToast: (s: string) => void;
+}) {
+    const [enabled, setEnabled] = useState(false), [busy, setBusy] = useState(false);
+    const t = localized(lang, { en: { title: 'Coin packs', hint: 'Optional. All missions and equipment can be earned by playing', setup: 'Purchases are not activated yet', buy: 'Buy', telegram: 'Open in Telegram to buy', wait: 'Payment received. Checking your wallet…' }, he: { title: 'חבילות Coin', hint: 'רכישה לבחירה. אפשר להשיג את כל המשימות והציוד דרך משחק', setup: 'הרכישות עדיין לא הופעלו', buy: 'קנה', telegram: 'פתח בטלגרם כדי לקנות', wait: 'התשלום התקבל. בודק את הארנק…' }, ar: { title: 'حزم Coin', hint: 'شراء اختياري. كل المهام والمعدات متاحة باللعب', setup: 'الشراء لسه مش مفعّل', buy: 'اشترِ', telegram: 'افتح بتليجرام للشراء', wait: 'تم الدفع. نفحص المحفظة…' } });
+    useEffect(() => { fetch('/api/payments/invoice').then(r => r.json()).then(d => setEnabled(d.enabled === true)).catch(() => { }); }, []);
+    async function buy(pack: string) { const tg = window.Telegram?.WebApp; if (!tg?.initData || !tg.openInvoice)
+        return; setBusy(true); try {
+        const r = await fetch('/api/payments/invoice', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ initData: tg.initData, pack }) });
+        const d = await r.json();
+        if (!r.ok)
+            throw Error(d.code);
+        tg.openInvoice(d.url, (status: string) => { setBusy(false); if (status === 'paid') {
+            onToast(t.wait);
+            void refreshProgress();
+            setTimeout(() => void refreshProgress(), 1500);
+            setTimeout(() => void refreshProgress(), 4000);
+        } });
+    }
+    catch {
+        setBusy(false);
+        onToast(t.setup);
+    } }
+    return <section className="hub-card coin-packs"><h2>{t.title}</h2><p>{t.hint}</p>{COIN_PACKS.map(p => <button className="hub-button secondary" key={p.id} disabled={!enabled || !live || busy || getSyncStatus() !== 'cloud'} onClick={() => void buy(p.id)}><strong>{p.coins} Coin</strong><span>{t.buy} · {p.stars} ★</span></button>)}<small>{!enabled ? t.setup : !live ? t.telegram : 'Telegram Stars · XTR'}</small></section>;
+}
