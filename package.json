@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "typecheck": "tsc --noEmit",
-    "test": "node tests/progression.cjs && node tests/scene.cjs && node tests/launch.cjs && node tests/outbox.cjs && node tests/ton.cjs && node tests/journey.cjs"
+    "test": "node tests/progression.cjs && node tests/scene.cjs && node tests/launch.cjs && node tests/outbox.cjs && node tests/ton.cjs && node tests/journey.cjs && node tests/auth.cjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.57.0",

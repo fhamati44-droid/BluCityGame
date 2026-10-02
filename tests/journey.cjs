@@ -35,12 +35,21 @@ function load(file,mocks={}){
    }catch(error){return{data:null,error:{message:error.message,code:error.code}};}
   }
  };
- const mocks={'next/server':{NextResponse:{json:(data,options={})=>({data,status:options.status||200})}},'@/lib/game-server':{database:()=>adapter,identity:r=>r.user?{id:r.user}:null},'@/lib/levels':g,'@/lib/ton-config':config};
+ const validation=load('lib/command-validation.ts',{'./levels':g});
+ const mocks={'next/server':{NextResponse:{json:(data,options={})=>({data,status:options.status||200})}},'@/lib/game-server':{database:()=>adapter,identity:r=>r.user?{id:r.user}:null},'@/lib/levels':g,'@/lib/ton-config':config,'@/lib/command-validation':validation};
  const progress=load('app/api/progress/route.ts',mocks),withdrawal=load('app/api/ton/withdrawals/route.ts',mocks);
  const origin='https://blu.example';
  const request=(user,body)=>({user,headers:new Headers({origin}),nextUrl:{origin},json:async()=>body});
  const open=async(user=101)=>{const result=await progress.POST(request(user,{action:'open'}));assert.equal(result.status,200);return result.data;};
  let saved=await open();assert.equal(saved.progress.coins,0);assert.equal(g.unlockedLevel(saved.progress),1);
+ const base={action:'command',revision:saved.revision,commandId:randomUUID(),command:{type:'daily'}};
+ for(const bad of [null,[],{type:'give-coins'},{type:'daily',coins:9999},{type:'collect',id:'1',index:0},{type:'collect',id:1,index:3},{type:'finish',id:99},{type:'buy',id:'unknown'},{type:'equip',id:'shoes'},{type:'daily',cityLevel:101},{type:'run-finish',bolts:Infinity}])assert.equal((await progress.POST(request(101,{...base,command:bad}))).status,400);
+ assert.equal((await progress.POST(request(101,{...base,commandId:'-'.repeat(36)}))).status,400);
+ assert.equal((await progress.POST(request(101,{...base,revision:-1}))).status,400);
+ assert.equal((await progress.POST({...request(101,base),headers:new Headers({origin:'https://evil.example'})})).status,403);
+ assert.equal((await progress.POST({...request(101,base),headers:new Headers()})).status,403);
+ assert.equal((await progress.POST(request(null,base))).status,401);
+ assert.equal((await open()).revision,0,'Rejected requests never change balances or revision');
  const command=async(c)=>{const result=await progress.POST(request(101,{action:'command',revision:saved.revision,commandId:randomUUID(),command:{...c,cityLevel:saved.progress.cityLevel}}));assert.equal(result.status,200);saved=result.data;return saved.progress;};
  for(const mission of g.LEVELS){
   await command({type:'finish',id:mission.id});assert.equal(saved.progress.completed.length,mission.id-1,'Cannot finish before collecting');
