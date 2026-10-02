@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
-import { getProgress, checkpointProgress, dispatchProgress, getSyncStatus } from '../../lib/progress-store';
+import { getProgress, checkpointProgress, dispatchProgress, getSyncStatus, setMissionPosition } from '../../lib/progress-store';
 import { unlockedLevel, cityScale, cityName } from '../../lib/levels';
 import { BluRig, toon } from './BluRig';
 import { completeLevel, exchangeCoins, upgradeDash, COINS_PER_BLU, DASH_COST_BLU, LEVELS, parseLevelProgress, SAVE_KEY, type LevelId } from '../../lib/levels';
@@ -169,7 +169,7 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored, c
     if (restored) applyLights(true);if(challenge){genRing.visible=false;} if (metroDone) stationSign.material = litMats.station;
 
     const state = { pos: new THREE.Vector3(0, 0, 10), vy: 0, jumps: 0, speed: 0, energy: restored ? 65 : 0, dash: 0, slide: 0, over: 0, charge: 0, time: 0, lastHud: 0, restoreTime: 0, metroTime: 0, padReady: true, airborne: false, idle: 0, yaw: 0, shake: 0, bolts: 0, travelled: 0, onRail: false, railShown: false, secretShown: false };
-    let hitCooldown=0;
+    let hitCooldown=0,sessionLevel=0,chargeTarget='';
     const key = new Set<string>();
     const down = (e: KeyboardEvent) => { key.add(e.code); if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) e.preventDefault(); if (!startedRef.current && (e.code === 'Space' || e.code === 'Enter')) { input.current.start = true; return; } if (e.code === 'Space') input.current.jump = true; if (e.code === 'ShiftLeft') input.current.dash = true; if (e.code === 'ControlLeft' || e.code === 'KeyC') input.current.slide = true; if (e.code === 'KeyE') input.current.charge = true; };
     const up = (e: KeyboardEvent) => { key.delete(e.code); if (e.code === 'KeyE') input.current.charge = false; };
@@ -193,7 +193,9 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored, c
       if (input.current.upgrade) { input.current.upgrade = false; progress=dispatchProgress({type:"dash"});publish(); }
       if (document.hidden || pausedRef.current) return; state.time += dt; const control = input.current; const playing = startedRef.current;
       if (control.start) { control.start = false; startedRef.current = true; setStarted(true);if(challenge){progress=dispatchProgress({type:"run-start"});state.time=0;state.bolts=0;} }
-      if (control.next && progress.completed.includes(activeLevel)) { control.next = false; if(activeLevel<6)activeLevel=(activeLevel+1) as LevelId; else {progress=dispatchProgress({type:'next-city'});onMenu();return;} metroCores.forEach((c, i) => { c.visible = activeLevel===2&&!metroFound[i]; });state.charge = 0;control.charge=false;carriedCell=null;extraCelebrate=0;state.restoreTime=0;state.metroTime=0;publish(); }
+      if (control.next && progress.completed.includes(activeLevel)) { control.next = false; if(activeLevel<6)activeLevel=(activeLevel+1) as LevelId; else {progress=dispatchProgress({type:'next-city'});onMenu();return;} sessionLevel=0;metroCores.forEach((c, i) => { c.visible = activeLevel===2&&!metroFound[i]; });state.charge = 0;control.charge=false;carriedCell=null;extraCelebrate=0;state.restoreTime=0;state.metroTime=0;publish(); }
+      setMissionPosition(state.pos);
+      if(playing&&!challenge&&sessionLevel!==activeLevel&&!progress.completed.includes(activeLevel)){progress=dispatchProgress({type:'mission-start',id:activeLevel});sessionLevel=activeLevel;}
       let horizontal = 0, forward = 0;
       if (playing) {
         horizontal = THREE.MathUtils.clamp(control.x + Number(key.has('KeyD') || key.has('ArrowRight')) - Number(key.has('KeyA') || key.has('ArrowLeft')), -1, 1);
@@ -240,6 +242,10 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored, c
       blu.update(dt, { speed: Math.min(1, state.speed / 9), grounded, vy: state.vy, sliding: state.slide > 0, dashing: state.dash > 0, charging, celebrating, overcharge: state.over > 0, waving: !playing || (state.idle > 4 && state.idle % 6 < 1.6), yaw: faceCam ? 0 : state.yaw });
       blu.setEnergy(state.energy);blu.setEquipment(progress);
       const shadow = blu.root.getObjectByName('shadow'); if (shadow) { shadow.position.y = (state.onRail ? 0 : -state.pos.y) + .03; shadow.scale.setScalar(Math.max(.4, 1 - state.pos.y * .06)); }
+      setMissionPosition(state.pos);
+      const chargingTarget=charging&&!challenge?`${activeLevel}:${activationNode}`:'';
+      if(chargingTarget&&chargingTarget!==chargeTarget)progress=dispatchProgress({type:'mission-charge',id:activeLevel,...(activationNode>=0?{index:activationNode}:{})});
+      chargeTarget=chargingTarget;
       // Collectibles
       const spin = state.time * 3;
       for (let i = 0; i < boltSpots.length; i++) {
@@ -256,9 +262,9 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored, c
       else if(charging&&(activeLevel>2||challenge)){state.charge=Math.min(1,state.charge+dt/(progress.inventory.includes('gloves')?1.05:1.5));if(state.charge>=1){if(challenge){const before=progress.runs;progress=dispatchProgress({type:'run-finish',bolts:state.bolts});runDone=progress.runs>before;}else {award(activeLevel);applyLights(true);}extraCelebrate=state.time;state.shake=.4;burst(tmpV.copy(state.pos).setY(state.pos.y+2),0x6ff7ff,35,14,8);publish();}}
       else state.charge = Math.max(0, state.charge - dt * 1.5);
       if (state.restoreTime > 0 && litWindows < wi) { const goal = Math.min(Math.floor(wi*progress.completed.length/6), Math.floor((state.time - state.restoreTime) * 160)); for (; litWindows < goal; litWindows++) lightWindow(litWindows); if (windowsMesh.instanceColor) windowsMesh.instanceColor.needsUpdate = true; lamps.forEach((l, i) => { if (i < Math.min(lamps.length*progress.completed.length/6,(state.time - state.restoreTime) * 8)) l.material = litMats.lamp; }); signs.forEach((s, i) => { if (i < Math.min(signs.length*progress.completed.length/6,(state.time - state.restoreTime) * 3)) s.material = litMats.sign; }); }
-      for(const id of [3,4,5,6]){extra[id].forEach((o,i)=>{o.visible=!challenge&&activeLevel===id&&!progress.objectives[id][i]&&!(id===3&&carriedCell===i);o.children[0].rotation.y+=dt*2;if(o.visible&&playing&&id!==6&&state.pos.distanceTo(o.position)<1.8){if(id===3){if(carriedCell===null)carriedCell=i;publish();return;}progress=dispatchProgress({type:'collect',id,index:i});state.energy=Math.min(100,state.energy+35);if(state.energy>=100)state.over=progress.inventory.includes('battery')?10:7;burst(tmpV.copy(o.position).setY(o.position.y+1.8),0x6ff7ff,18,6,6);publish();}});terminalRings[id].visible=!challenge&&activeLevel===id&&!progress.completed.includes(id)&&(progress.objectives[id].every(Boolean)||id===3&&carriedCell!==null);}
+      for(const id of [3,4,5,6]){extra[id].forEach((o,i)=>{o.visible=!challenge&&activeLevel===id&&!progress.objectives[id][i]&&!(id===3&&carriedCell===i);o.children[0].rotation.y+=dt*2;if(o.visible&&playing&&id!==6&&state.pos.distanceTo(o.position)<1.8){if(id===3){if(carriedCell===null){progress=dispatchProgress({type:'mission-pickup',id:3,index:i});carriedCell=i;}publish();return;}progress=dispatchProgress({type:'collect',id,index:i});state.energy=Math.min(100,state.energy+35);if(state.energy>=100)state.over=progress.inventory.includes('battery')?10:7;burst(tmpV.copy(o.position).setY(o.position.y+1.8),0x6ff7ff,18,6,6);publish();}});terminalRings[id].visible=!challenge&&activeLevel===id&&!progress.completed.includes(id)&&(progress.objectives[id].every(Boolean)||id===3&&carriedCell!==null);}
       if(activeLevel===3&&carriedCell!==null&&state.pos.distanceTo(terminals[3])<2){const index=carriedCell;progress=dispatchProgress({type:'collect',id:3,index});if(progress.objectives[3][index])carriedCell=null;publish();}
-      if(activeLevel===5&&progress.objectives[5].every(Boolean)&&state.pos.distanceTo(mechanic.position)<4)escort=true;
+      if(activeLevel===5&&!escort&&progress.objectives[5].every(Boolean)&&state.pos.distanceTo(mechanic.position)<4){progress=dispatchProgress({type:'mission-escort',id:5});escort=true;}
       if(escort&&!progress.completed.includes(5)){const target=state.pos.clone();target.y=0;mechanic.position.lerp(target,1-Math.exp(-2*dt));mechanic.rotation.y=Math.atan2(target.x-mechanic.position.x,target.z-mechanic.position.z);}
       mechanic.visible=activeLevel===5||progress.completed.includes(5);if(progress.completed.includes(5))mechanic.position.set(24,0,-53);
       shopLight.material=progress.completed.includes(3)?litMats.station:shopUnlit;workshopLight.material=progress.completed.includes(5)?litMats.sign:workshopUnlit;

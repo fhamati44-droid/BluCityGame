@@ -1,6 +1,7 @@
 import {NextRequest,NextResponse} from 'next/server';
 import {applyCommand,parseLevelProgress} from '@/lib/levels';
 import {validGameCommand} from '@/lib/command-validation';
+import {guardMission} from '@/lib/mission-guard';
 import {progressRateLimit} from '@/lib/progress-rate-limit';
 import {database,identity,newTicket,ticketHash,sessionToken} from '@/lib/game-server';
 export const runtime='nodejs';
@@ -34,10 +35,12 @@ export async function POST(request:NextRequest){try{
  const revision=row.city_revision||0;
  if(body.action==='open')return reply({progress,revision,account:who.id,paymentsReady:!!process.env.TELEGRAM_WEBHOOK_SECRET&&process.env.BLU_PAYMENTS_ENABLED==='true'});
  if(body.revision!==revision)return reply({code:'CONFLICT',progress,revision},409);
+ const mission=guardMission(row.city_save?._mission,progress,body.command);
+ if('code' in mission)return reply({code:mission.code,retryAfterMs:mission.retryAfterMs},mission.code==='MISSION_WAIT'?429:400);
  const next=applyCommand(progress,body.command);
  const rate=progressRateLimit(row.city_save?._serverRate,Date.now(),next.coins>progress.coins);
  if(!rate.allowed)return reply({code:'COMMAND_RATE_LIMIT',retryAfterMs:rate.retryAfterMs},429);
- const {data:saved,error:saveError}=await db.rpc('blu_store_command',{p_user:who.id,p_revision:revision,p_command:body.commandId,p_save:{...next,_serverRate:rate.rate}});
+ const {data:saved,error:saveError}=await db.rpc('blu_store_command',{p_user:who.id,p_revision:revision,p_command:body.commandId,p_save:{...next,_serverRate:rate.rate,_mission:mission.session??null}});
  if(saveError)return reply({code:saveError.code==='PGRST202'?'MIGRATION_REQUIRED':'SAVE_UNAVAILABLE'},503);
  if(saved.code==='CONFLICT')return reply({code:'CONFLICT',progress:parseLevelProgress(JSON.stringify(saved.progress)),revision:saved.revision},409);
  return reply({progress:parseLevelProgress(JSON.stringify(saved.progress)),revision:saved.revision,account:who.id});

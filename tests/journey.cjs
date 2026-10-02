@@ -38,8 +38,9 @@ function load(file,mocks={}){
   }
  };
  const validation=load('lib/command-validation.ts',{'./levels':g});
+ const missionGuard=load('lib/mission-guard.ts',{'./levels':g});
  const rateLimit=load('lib/progress-rate-limit.ts');
- const mocks={'next/server':{NextResponse:{json:(data,options={})=>({data,status:options.status||200})}},'@/lib/game-server':{database:()=>adapter,identity:r=>r.user?{id:r.user}:null},'@/lib/levels':g,'@/lib/ton-config':config,'@/lib/command-validation':validation,'@/lib/progress-rate-limit':rateLimit,'@/lib/wallet-proof':{PROOF_COOKIE:'proof',verifiedWallet:()=>true}};
+ const mocks={'next/server':{NextResponse:{json:(data,options={})=>({data,status:options.status||200})}},'@/lib/game-server':{database:()=>adapter,identity:r=>r.user?{id:r.user}:null},'@/lib/levels':g,'@/lib/ton-config':config,'@/lib/command-validation':validation,'@/lib/progress-rate-limit':rateLimit,'@/lib/mission-guard':missionGuard,'@/lib/wallet-proof':{PROOF_COOKIE:'proof',verifiedWallet:()=>true}};
  const progress=load('app/api/progress/route.ts',mocks),withdrawal=load('app/api/ton/withdrawals/route.ts',mocks);
  const origin='https://blu.example';
  const request=(user,body)=>({user,headers:new Headers({origin}),nextUrl:{origin,host:'blu.example'},cookies:{get:()=>undefined},json:async()=>body});
@@ -53,7 +54,26 @@ function load(file,mocks={}){
  assert.equal((await progress.POST({...request(101,base),headers:new Headers()})).status,403);
  assert.equal((await progress.POST(request(null,base))).status,401);
  assert.equal((await open()).revision,0,'Rejected requests never change balances or revision');
- const command=async(c)=>{serverClock+=2000;const result=await progress.POST(request(101,{action:'command',revision:saved.revision,commandId:randomUUID(),command:{...c,cityLevel:saved.progress.cityLevel}}));assert.equal(result.status,200);saved=result.data;return saved.progress;};
+ let activeSession=0;
+ const rawCommand=async(c,expected=200)=>{serverClock+=3000;const result=await progress.POST(request(101,{action:'command',revision:saved.revision,commandId:randomUUID(),command:{...c,cityLevel:saved.progress.cityLevel}}));assert.equal(result.status,expected,JSON.stringify(result.data));if(result.status===200)saved=result.data;return saved.progress;};
+ const command=async(c)=>{
+  if(['collect','finish'].includes(c.type)){
+   if(saved.progress.completed.includes(c.id))return rawCommand({...c,position:missionGuard.MISSION_TERMINALS[c.id]},400);
+   if(activeSession!==c.id){await rawCommand({type:'mission-start',id:c.id,position:{x:0,y:0,z:10}});activeSession=c.id;}
+   if(c.type==='collect'){
+    const point=missionGuard.MISSION_POINTS[c.id][c.index];
+    if(c.id===3)await rawCommand({type:'mission-pickup',id:3,index:c.index,position:point});
+    if(c.id===6)await rawCommand({type:'mission-charge',id:6,index:c.index,position:point});
+    return rawCommand({...c,position:c.id===3?missionGuard.MISSION_TERMINALS[3]:point});
+   }
+   if(!saved.progress.objectives[c.id].every(Boolean))return rawCommand({...c,position:missionGuard.MISSION_TERMINALS[c.id]},400);
+   if(c.id===5)await rawCommand({type:'mission-escort',id:5,position:missionGuard.MISSION_POINTS[5][1]});
+   await rawCommand({type:'mission-charge',id:c.id,position:missionGuard.MISSION_TERMINALS[c.id]});
+   return rawCommand({...c,position:missionGuard.MISSION_TERMINALS[c.id]});
+  }
+  if(c.type==='next-city')activeSession=0;
+  return rawCommand(c);
+ };
  for(const mission of g.LEVELS){
   await command({type:'finish',id:mission.id});assert.equal(saved.progress.completed.length,mission.id-1,'Cannot finish before collecting');
   for(let index=0;index<mission.required;index++)await command({type:'collect',id:mission.id,index});
@@ -95,9 +115,11 @@ function load(file,mocks={}){
  saved=resumed.data;
  const send=async(command,id=randomUUID())=>progress.POST(request(101,{action:'command',revision:saved.revision,commandId:id,command}));
  let r=await send({type:'daily'});assert.equal(r.status,200);saved=r.data;
- for(const index of [1,2]){r=await send({type:'collect',id:1,index,cityLevel:2});assert.equal(r.status,200);saved=r.data;}
- const finishId=randomUUID(),rewardBlocked=await send({type:'finish',id:1,cityLevel:2},finishId);assert.equal(rewardBlocked.status,429);assert.equal((await open()).progress.completed.length,0,'Blocked reward does not mark a mission complete');
- const coinsBefore=saved.progress.coins;serverClock+=rewardBlocked.data.retryAfterMs;r=await send({type:'finish',id:1,cityLevel:2},finishId);assert.equal(r.status,200);assert.equal(r.data.progress.coins,coinsBefore+100);assert.equal(r.data.progress.completed.length,1);
+ for(const index of [1,2])await command({type:'collect',id:1,index});
+ await command({type:'mission-charge',id:1,position:missionGuard.MISSION_TERMINALS[1]});
+ const finishId=randomUUID(),finishCommand={type:'finish',id:1,cityLevel:2,position:missionGuard.MISSION_TERMINALS[1]};
+ const rewardBlocked=await send(finishCommand,finishId);assert.equal(rewardBlocked.status,429);assert.equal(rewardBlocked.data.code,'MISSION_WAIT');assert.equal((await open()).progress.completed.length,0,'Blocked reward does not mark a mission complete');
+ const coinsBefore=saved.progress.coins;serverClock+=rewardBlocked.data.retryAfterMs;r=await send(finishCommand,finishId);assert.equal(r.status,200);assert.equal(r.data.progress.coins,coinsBefore+100);assert.equal(r.data.progress.completed.length,1);
  console.log('PASS: real API + SQL journey: new account, six missions, persisted checkpoints, equipment, dash, conversion, withdrawal retry, revision conflict, city 2, account isolation and confirmed status');
  console.log('PASS: durable burst/minute limits across handlers, account separation, no write on 429, hidden metadata and recovery after expiry');
  }finally{if(previous===undefined)delete process.env.BLU_TESTNET_WITHDRAWALS_ENABLED;else process.env.BLU_TESTNET_WITHDRAWALS_ENABLED=previous;await db.close();}
