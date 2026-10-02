@@ -10,9 +10,9 @@ const copy = {
   en: { title: 'BLU wallet', test: 'Testnet · no cash value', connect: 'Connect test wallet', disconnect: 'Disconnect wallet', balance: 'BLU in wallet', refresh: 'Refresh balance', loading: 'Checking balance…', error: 'Balance is unavailable. Try again.', wrong: 'Wallet is on Mainnet. Disconnect, select Testnet in your wallet and reconnect.', internal: 'Game BLU is separate from wallet BLU. Requests reserve BLU from your cloud balance.', unavailable: 'Withdrawal requests are not enabled yet.', request: 'Request wallet transfer', amount: 'BLU amount', destination: 'Destination address', confirm: 'I confirm this destination for testnet tokens.', queued: 'Request recorded and awaiting transfer. Tokens have not been sent yet.', pending: 'Pending', processing: 'Processing', confirmed: 'Confirmed on chain', refunded: 'Refunded', history: 'Recent requests', insufficient: 'Not enough synced game BLU.', daily: 'The test limit is 10 BLU per day.', cloud: 'Open through Telegram and wait for cloud sync.', failure: 'Request was not confirmed. You can retry.', manual: 'Up to 10 BLU per day. A request is confirmed only after its on-chain transfer is verified.', explorer: 'View BLU contract', checking: 'Checking availability…' },
 };
 type Withdrawal = { id: string; amount: number; status: 'pending' | 'processing' | 'confirmed' | 'refunded'; tx_hash: string | null; created_at: string };
-async function api(body: object) {
+async function api(body: object, path = '/api/ton/withdrawals') {
   const initData = (window as Window & { Telegram?: { WebApp?: { initData?: string } } }).Telegram?.WebApp?.initData || '';
-  const response = await fetch('/api/ton/withdrawals', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...body, initData }), signal: AbortSignal.timeout(12000) });
+  const response = await fetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...body, initData }), signal: AbortSignal.timeout(12000) });
   const data = await response.json();
   if (!response.ok) throw Error(data.code || 'FAILED');
   return data;
@@ -24,11 +24,33 @@ function Wallet({ lang }: { lang: Lang }) {
   const [refresh, setRefresh] = useState(0), [enabled, setEnabled] = useState<boolean | null>(null), [requests, setRequests] = useState<Withdrawal[]>([]);
   const [amount, setAmount] = useState('1'), [confirmed, setConfirmed] = useState(false), [busy, setBusy] = useState(false), [message, setMessage] = useState('');
   const [restoring,setRestoring]=useState(false);
+  const [proofState,setProofState]=useState<'checking'|'verified'|'required'>('checking');
+  const proofCopy={he:{verified:'הבעלות על הארנק אומתה',required:'כדי למשוך, חבר מחדש ואשר את חתימת אימות הבעלות בארנק.',button:'אמת בעלות על הארנק'},ar:{verified:'تم التحقق من ملكية المحفظة',required:'للسحب، اربط من جديد ووافق على توقيع إثبات الملكية.',button:'تحقق من ملكية المحفظة'},en:{verified:'Wallet ownership verified',required:'To withdraw, reconnect and approve the wallet ownership signature.',button:'Verify wallet ownership'}}[lang];
   const [submittedId, setSubmittedId] = useState<string | null>(null);
   const requestStates = useRef(new Map<string, Withdrawal['status']>());
   const [balanceError,setBalanceError]=useState('');
   const pending = useRef<{ id: string; address: string; amount: number } | null>(null);
   const address = wallet?.account.address, network = wallet?.account.chain, correct = network === TON_TESTNET;
+  async function connectWithProof(){
+    try{
+      if(sync==='cloud'){ui.setConnectRequestParameters({state:'loading'});const c=await api({action:'challenge'},'/api/ton/proof');ui.setConnectRequestParameters({state:'ready',value:{tonProof:c.payload}});}
+      else ui.setConnectRequestParameters(null);
+      await ui.openModal();
+    }catch{ui.setConnectRequestParameters(null);setMessage(t.failure);}
+  }
+  useEffect(()=>{
+    let active=true;setProofState('checking');
+    if(!wallet||!correct||sync!=='cloud'){setProofState('required');return;}
+    async function check(){try{
+      const status=await api({action:'status',address},'/api/ton/proof');
+      if(!active)return;
+      if(status.verified){setProofState('verified');return;}
+      const item=wallet?.connectItems?.tonProof;
+      if(item&&'proof' in item){const result=await api({action:'verify',address,network,walletStateInit:wallet?.account.walletStateInit,publicKey:wallet?.account.publicKey,proof:item.proof},'/api/ton/proof');if(active)setProofState(result.verified?'verified':'required');}
+      else setProofState('required');
+    }catch{if(active)setProofState('required');}}
+    void check();return()=>{active=false;};
+  },[wallet,address,network,correct,sync]);
   useEffect(() => { if(restored&&!wallet)ui.setConnectionNetwork(CHAIN.TESTNET); }, [ui,wallet,restored]);
   useEffect(() => { setConfirmed(false); setMessage(''); setSubmittedId(null); }, [address, correct]);
   useEffect(() => {
@@ -74,7 +96,7 @@ function Wallet({ lang }: { lang: Lang }) {
     : submitted?.status === 'processing' ? t.processing : t.queued) : '';
   async function requestTransfer() {
     const count = Number(amount);
-    if (busy || !address || !correct || !confirmed || sync !== 'cloud' || !enabled || !Number.isInteger(count) || count < 1 || count > 10) return;
+    if (busy || !address || !correct || !confirmed || sync !== 'cloud' || !enabled || proofState!=='verified' || !Number.isInteger(count) || count < 1 || count > 10) return;
     setBusy(true); setMessage('');
     try {
       await refreshProgress();
@@ -91,19 +113,21 @@ function Wallet({ lang }: { lang: Lang }) {
       await refreshProgress(); setRefresh(n => n + 1);
     } catch (error) {
       const code = error instanceof Error ? error.message : '';
-      setMessage(code === 'INSUFFICIENT_BLU' ? t.insufficient : code === 'DAILY_LIMIT' ? t.daily : code === 'OPEN_TELEGRAM' ? t.cloud : t.failure);
+      if(code==='WALLET_PROOF_REQUIRED')setProofState('required');
+      setMessage(code === 'WALLET_PROOF_REQUIRED'?proofCopy.required:code === 'INSUFFICIENT_BLU' ? t.insufficient : code === 'DAILY_LIMIT' ? t.daily : code === 'OPEN_TELEGRAM' ? t.cloud : t.failure);
     } finally { setBusy(false); }
   }
   return <section className="hub-card ton-wallet-panel" aria-label={t.title}>
     <div className="hub-card-top"><h2>{t.title}</h2><span className="hub-state">TESTNET</span></div><p>{t.test}</p>
     {!wallet&&<button className="hub-button secondary" disabled={restoring} onClick={async()=>{setRestoring(true);try{await ui.connector.restoreConnection();if(!ui.connector.connected)setMessage(lang==='he'?'לא נמצא חיבור קודם. לחץ על חבר ארנק בדיקה.':lang==='ar'?'لا يوجد اتصال سابق. اربط المحفظة من جديد.':'No previous connection found. Connect a test wallet.');}catch{setMessage(t.failure);}finally{setRestoring(false);}}}>{restoring?'…':lang==='he'?'שחזר חיבור קודם':lang==='ar'?'استعادة الاتصال السابق':'Restore previous connection'}</button>}
-    {!wallet ? <button className="hub-button" disabled={!restored} onClick={() => { ui.openModal().catch(() => setMessage(t.failure)); }}>{restored?t.connect:lang==='he'?'משחזר חיבור לארנק…':lang==='ar'?'جاري استعادة اتصال المحفظة…':'Restoring wallet connection…'}</button> : <>
+    {!wallet ? <button className="hub-button" disabled={!restored} onClick={() => { void connectWithProof(); }}>{restored?t.connect:lang==='he'?'משחזר חיבור לארנק…':lang==='ar'?'جاري استعادة اتصال المحفظة…':'Restoring wallet connection…'}</button> : <>
       <p className="ton-address" dir="ltr">{address}</p><button className="hub-button secondary" onClick={() => { ui.disconnect().catch(() => setMessage(t.failure)); }}>{t.disconnect}</button>
       {!correct ? <p role="alert">{t.wrong}</p> : <><p>{t.balance}: <strong dir="ltr">{balanceState === 'loading' ? t.loading : balance === null ? '—' : `${balance} BLU`}</strong></p>{balanceState === 'error' && <p role="alert">{t.error} <span dir="ltr">{balanceError}</span></p>}<button className="hub-button secondary" disabled={balanceState === 'loading'} onClick={() => setRefresh(n => n + 1)}>{t.refresh}</button></>}
     </>}
+    {wallet&&correct&&sync==='cloud'&&<><p role='status'>{proofState==='checking'?t.checking:proofState==='verified'?proofCopy.verified:proofCopy.required}</p>{proofState==='required'&&<button className='hub-button secondary' onClick={async()=>{try{await ui.disconnect();await connectWithProof();}catch{setMessage(t.failure);}}}>{proofCopy.button}</button>}</>}
     <p>{t.internal}</p><a href={`https://testnet.tonviewer.com/${BLU_JETTON_MASTER}`} target="_blank" rel="noreferrer">{t.explorer}</a>
     {sync !== 'cloud' ? <p>{t.cloud}</p> : enabled === null ? <p>{t.checking}</p> : !enabled ? <p>{t.unavailable}</p> : <>
-      <p>{t.manual}</p>{wallet && correct && <><label>{t.amount}<input type="number" min="1" max="10" step="1" value={amount} disabled={busy} onChange={e => { setAmount(e.target.value); setConfirmed(false); }} /></label><p>{t.destination}</p><p className="ton-address" dir="ltr">{address}</p><label className="ton-confirm"><input type="checkbox" checked={confirmed} disabled={busy} onChange={e => setConfirmed(e.target.checked)} />{t.confirm}</label><button className="hub-button" disabled={!confirmed || busy || !Number.isInteger(Number(amount)) || Number(amount) < 1 || Number(amount) > 10} onClick={() => { void requestTransfer(); }}>{busy ? '…' : t.request}</button></>}
+      <p>{t.manual}</p>{wallet && correct && <><label>{t.amount}<input type="number" min="1" max="10" step="1" value={amount} disabled={busy} onChange={e => { setAmount(e.target.value); setConfirmed(false); }} /></label><p>{t.destination}</p><p className="ton-address" dir="ltr">{address}</p><label className="ton-confirm"><input type="checkbox" checked={confirmed} disabled={busy} onChange={e => setConfirmed(e.target.checked)} />{t.confirm}</label><button className="hub-button" disabled={proofState!=='verified' || !confirmed || busy || !Number.isInteger(Number(amount)) || Number(amount) < 1 || Number(amount) > 10} onClick={() => { void requestTransfer(); }}>{busy ? '…' : t.request}</button></>}
       {requests.length > 0 && <><h3>{t.history}</h3><ul>{requests.map(r => <li key={r.id}><span>{r.amount} BLU · {t[r.status]}</span>{r.tx_hash && <a href={`https://testnet.tonviewer.com/transaction/${encodeURIComponent(r.tx_hash)}`} target="_blank" rel="noreferrer"> ↗</a>}</li>)}</ul></>}
     </>}
     {transferMessage && <p role="status">{transferMessage}</p>}

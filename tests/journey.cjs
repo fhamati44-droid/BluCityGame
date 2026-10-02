@@ -36,10 +36,10 @@ function load(file,mocks={}){
   }
  };
  const validation=load('lib/command-validation.ts',{'./levels':g});
- const mocks={'next/server':{NextResponse:{json:(data,options={})=>({data,status:options.status||200})}},'@/lib/game-server':{database:()=>adapter,identity:r=>r.user?{id:r.user}:null},'@/lib/levels':g,'@/lib/ton-config':config,'@/lib/command-validation':validation};
+ const mocks={'next/server':{NextResponse:{json:(data,options={})=>({data,status:options.status||200})}},'@/lib/game-server':{database:()=>adapter,identity:r=>r.user?{id:r.user}:null},'@/lib/levels':g,'@/lib/ton-config':config,'@/lib/command-validation':validation,'@/lib/wallet-proof':{PROOF_COOKIE:'proof',verifiedWallet:()=>true}};
  const progress=load('app/api/progress/route.ts',mocks),withdrawal=load('app/api/ton/withdrawals/route.ts',mocks);
  const origin='https://blu.example';
- const request=(user,body)=>({user,headers:new Headers({origin}),nextUrl:{origin},json:async()=>body});
+ const request=(user,body)=>({user,headers:new Headers({origin}),nextUrl:{origin,host:'blu.example'},cookies:{get:()=>undefined},json:async()=>body});
  const open=async(user=101)=>{const result=await progress.POST(request(user,{action:'open'}));assert.equal(result.status,200);return result.data;};
  let saved=await open();assert.equal(saved.progress.coins,0);assert.equal(g.unlockedLevel(saved.progress),1);
  const base={action:'command',revision:saved.revision,commandId:randomUUID(),command:{type:'daily'}};

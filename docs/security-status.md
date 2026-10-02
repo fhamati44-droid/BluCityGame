@@ -7,12 +7,18 @@
 - Telegram authentication rejects duplicate query fields, non-integer timestamps, expired data and timestamps more than 30 seconds in the future; signature verification remains mandatory.
 - Cron secret comparison uses byte lengths, so invalid multibyte input produces an unauthorized response instead of a timingSafeEqual exception.
 - Existing tests verify atomic withdrawal reservations, stable retries, revision conflicts, per-account visibility, daily limits and verified recipient credit before payout confirmation.
+- New withdrawals require TON Connect `ton_proof`. `/api/ton/proof` issues a random 10-minute challenge in a signed HttpOnly cookie, bound to the authenticated player, domain and Testnet. The verifier extracts the key from address-matching StateInit with known V3R2, V4R2 or V5R1 code and verifies the Ed25519 signature.
+- A successful proof creates a signed HttpOnly verification cookie valid for 24 hours, bound to the same user/domain/network/address. It clears the browser challenge. A cookie-free or mismatched-address request cannot reserve tokens. Supported code extraction is deliberately limited; unsupported wallet code fails closed rather than trusting the supplied public key.
+- Existing connections continue to display balance and withdrawal history. To make a new withdrawal they must reconnect through the ownership-verification button and approve the proof in their wallet. No recovery phrase or transaction fee is requested by this proof.
+- Tests use generated local keys and cover valid proofs, altered signatures, mismatched keys, addresses, users, domains and networks, expired challenges, and browser challenge clearing. Live mobile wallet approval still needs acceptance testing.
 
 ## Still required before Mainnet
 
 1. **Gameplay proof:** the server currently accepts valid collect commands without proving movement or objective interaction. An authenticated user can automate valid commands. Schema validation is not an anti-cheat solution. A server-authoritative mission session and bounded telemetry/checkpoint validation must be designed and tested.
-2. **Wallet ownership:** a connected address is not cryptographic proof of ownership. Verify TON Connect ton_proof using a server challenge bound to the authenticated player, domain, network and expiration before enabling valuable withdrawals.
+2. **Wallet proof operations:** test approval and restoration in the actual Telegram mobile wallets. The challenge is browser-bound and stateless; durable global one-use nonce tracking and explicit revocation must be added before Mainnet. Unknown wallet code is not yet supported.
 3. **Operational controls:** durable rate limits, payout monitoring and alerts, explicit review/recovery for ambiguous or expired transfers, and treasury secret management.
 4. **Economic limits:** approve emissions, conversion rules, daily budgets and funding before issuing tokens of monetary value.
 
 These changes strengthen the existing Testnet service. They do not establish Mainnet readiness. No new environment variables or SQL migration are required for this hardening pass.
+
+Protocol source: https://github.com/ton-blockchain/ton-connect/blob/main/spec/connect.md#address-proof-signature-ton_proof

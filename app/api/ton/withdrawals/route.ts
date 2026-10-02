@@ -2,6 +2,7 @@ import { Address } from '@ton/ton';
 import { NextRequest, NextResponse } from 'next/server';
 import { database, identity } from '@/lib/game-server';
 import { BLU_JETTON_MASTER, TON_TESTNET } from '@/lib/ton-config';
+import {PROOF_COOKIE,verifiedWallet} from '@/lib/wallet-proof';
 export const runtime = 'nodejs';
 const reply = (data: unknown, status = 200) => NextResponse.json(data, { status, headers: { 'Cache-Control': 'no-store' } });
 export async function POST(request: NextRequest) {
@@ -26,6 +27,7 @@ export async function POST(request: NextRequest) {
       if (address.workChain !== 0 || address.equals(Address.parse(BLU_JETTON_MASTER))) throw Error();
       if (!body.address.includes(':') && !Address.parseFriendly(body.address).isTestOnly) throw Error();
     } catch { return reply({ code: 'INVALID_TESTNET_ADDRESS' }, 400); }
+    if(!verifiedWallet(request.cookies.get(PROOF_COOKIE)?.value,who.id,request.nextUrl.host,address.toRawString()))return reply({code:'WALLET_PROOF_REQUIRED'},403);
     const { data, error } = await database().rpc('blu_request_testnet_withdrawal', { p_user: who.id, p_id: body.requestId, p_amount: body.amount, p_destination: address.toRawString() });
     if (error) {
       const code = ['INSUFFICIENT_BLU', 'DAILY_LIMIT', 'INVALID_REQUEST', 'PLAYER_NOT_READY'].includes(error.message) ? error.message : 'WITHDRAWAL_UNAVAILABLE';

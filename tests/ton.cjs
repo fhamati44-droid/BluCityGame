@@ -30,10 +30,10 @@ function load(file, mocks={}) {
  contractState='uninitialized';assert.equal((await balanceRoute.GET(balanceRequest)).data.balance,'0');contractState='active';
  fakeMaster=fakeOwner;assert.equal((await balanceRoute.GET(balanceRequest)).status,503);
  assert.equal((await balanceRoute.GET({nextUrl:{searchParams:new URLSearchParams({address:'bad'})}})).status,400);
- const origin='https://blu.example';let calls=0;let identity={id:'1'};
+ const origin='https://blu.example';let calls=0;let identity={id:'1'},proofValid=false;
  const json=(data,options={})=>({data,status:options.status||200});
- const route=load('app/api/ton/withdrawals/route.ts',{'next/server':{NextResponse:{json}},'@/lib/ton-config':config,'@/lib/game-server':{identity:()=>identity,database:()=>({rpc:async(name,args)=>{calls++;return{data:{id:args.p_id,status:'pending'},error:null}}})}});
- const request=body=>({headers:new Headers({origin}),nextUrl:{origin},json:async()=>body});
+ const route=load('app/api/ton/withdrawals/route.ts',{'next/server':{NextResponse:{json}},'@/lib/ton-config':config,'@/lib/wallet-proof':{PROOF_COOKIE:'proof',verifiedWallet:()=>proofValid},'@/lib/game-server':{identity:()=>identity,database:()=>({rpc:async(name,args)=>{calls++;return{data:{id:args.p_id,status:'pending'},error:null}}})}});
+ const request=body=>({headers:new Headers({origin}),nextUrl:{origin,host:'blu.example'},cookies:{get:()=>undefined},json:async()=>body});
  const id='11111111-1111-4111-8111-111111111111';
  const address=Address.parse('0QChS16WNfKOK5pXdog_j9b4DSTWR2JGUvRaeGt9w2WjR3hF');
  const body={action:'request',network:'-3',amount:1,address:address.toRawString(),requestId:id};
@@ -44,7 +44,7 @@ function load(file, mocks={}) {
  assert.equal((await route.POST({...request(body),headers:new Headers({origin:'https://evil.example'})})).status,403);
  identity=null;assert.equal((await route.POST(request(body))).status,401);identity={id:'1'};
  for(const patch of [{network:'-239'},{amount:0},{amount:11},{amount:1.5},{address:'broken'},{address:config.BLU_JETTON_MASTER},{address:address.toString({testOnly:false})}]) assert.equal((await route.POST(request({...body,...patch}))).status,400);
- assert.equal(calls,0);assert.equal((await route.POST(request(body))).data.status,'pending');assert.equal(calls,1);
+ assert.equal(calls,0);assert.equal((await route.POST(request(body))).status,403);assert.equal(calls,0);proofValid=true;assert.equal((await route.POST(request(body))).data.status,'pending');assert.equal(calls,1);
  if(previous===undefined)delete process.env.BLU_TESTNET_WITHDRAWALS_ENABLED;else process.env.BLU_TESTNET_WITHDRAWALS_ENABLED=previous;
  const keys={publicKey:Buffer.alloc(32,1),secretKey:Buffer.alloc(64,2)};
  const treasury=actualTon.WalletContractV4.create({workchain:0,publicKey:keys.publicKey}).address;
