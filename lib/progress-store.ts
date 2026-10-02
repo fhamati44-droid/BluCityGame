@@ -14,10 +14,18 @@ export const getSyncStatus=()=>status;
 export function useProgress(){return useSyncExternalStore(subscribe,getProgress,()=>empty);}
 export function useSyncStatus(){return useSyncExternalStore(subscribe,getSyncStatus,()=> 'device');}
 async function request(body:object){const r=await fetch('/api/progress',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({initData:auth,...body}),signal:AbortSignal.timeout(12000)});return{r,d:await r.json()};}
+async function commandRequest(body:object){
+ for(;;){const result=await request(body);
+ if(result.r.status!==429||result.d.code!=='COMMAND_RATE_LIMIT')return result;
+ const delay=result.d.retryAfterMs;
+ if(!Number.isSafeInteger(delay)||delay<1||delay>60000)throw Error('INVALID_RATE_LIMIT');
+ await new Promise(resolve=>setTimeout(resolve,delay+50));
+ }
+}
 function queue(entry:Pending){pending++;status='saving';notify();tail=tail.then(async()=>{
  if(status==='sync-error')return;
- try{let{r,d}=await request({action:'command',revision,command:entry.command,commandId:entry.id});
- if(r.status===409&&Number.isInteger(d.revision)){revision=d.revision;({r,d}=await request({action:'command',revision,command:entry.command,commandId:entry.id}));}
+ try{let{r,d}=await commandRequest({action:'command',revision,command:entry.command,commandId:entry.id});
+ if(r.status===409&&Number.isInteger(d.revision)){revision=d.revision;({r,d}=await commandRequest({action:'command',revision,command:entry.command,commandId:entry.id}));}
  if(!r.ok)throw Error(d.code);revision=d.revision;authoritative=parseLevelProgress(JSON.stringify(d.progress));outbox=outbox.filter(e=>e.id!==entry.id);journal();
  }catch{status='sync-error';notify();}
  }).then(()=>{pending--;if(pending===0&&status!=='sync-error'){state=authoritative;status='cloud';save();}});}

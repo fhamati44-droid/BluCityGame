@@ -2,10 +2,12 @@
 const fs=require('node:fs'),vm=require('node:vm'),ts=require('typescript');
 const assert=require('node:assert/strict'),{randomUUID}=require('node:crypto');
 const {PGlite}=require('@electric-sql/pglite');
+let serverClock=Date.now();
+class ServerDate extends Date{static now(){return serverClock;}}
 function load(file,mocks={}){
  const module={exports:{}};
  const code=ts.transpileModule(fs.readFileSync(file,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2020}}).outputText;
- vm.runInNewContext(code,{module,exports:module.exports,require:n=>mocks[n]||require(n),process,Buffer,Date,Math,Set,Number,JSON,Array});
+ vm.runInNewContext(code,{module,exports:module.exports,require:n=>mocks[n]||require(n),process,Buffer,Date:ServerDate,Math,Set,Number,JSON,Array});
  return module.exports;
 }
 (async()=>{
@@ -36,7 +38,8 @@ function load(file,mocks={}){
   }
  };
  const validation=load('lib/command-validation.ts',{'./levels':g});
- const mocks={'next/server':{NextResponse:{json:(data,options={})=>({data,status:options.status||200})}},'@/lib/game-server':{database:()=>adapter,identity:r=>r.user?{id:r.user}:null},'@/lib/levels':g,'@/lib/ton-config':config,'@/lib/command-validation':validation,'@/lib/wallet-proof':{PROOF_COOKIE:'proof',verifiedWallet:()=>true}};
+ const rateLimit=load('lib/progress-rate-limit.ts');
+ const mocks={'next/server':{NextResponse:{json:(data,options={})=>({data,status:options.status||200})}},'@/lib/game-server':{database:()=>adapter,identity:r=>r.user?{id:r.user}:null},'@/lib/levels':g,'@/lib/ton-config':config,'@/lib/command-validation':validation,'@/lib/progress-rate-limit':rateLimit,'@/lib/wallet-proof':{PROOF_COOKIE:'proof',verifiedWallet:()=>true}};
  const progress=load('app/api/progress/route.ts',mocks),withdrawal=load('app/api/ton/withdrawals/route.ts',mocks);
  const origin='https://blu.example';
  const request=(user,body)=>({user,headers:new Headers({origin}),nextUrl:{origin,host:'blu.example'},cookies:{get:()=>undefined},json:async()=>body});
@@ -50,7 +53,7 @@ function load(file,mocks={}){
  assert.equal((await progress.POST({...request(101,base),headers:new Headers()})).status,403);
  assert.equal((await progress.POST(request(null,base))).status,401);
  assert.equal((await open()).revision,0,'Rejected requests never change balances or revision');
- const command=async(c)=>{const result=await progress.POST(request(101,{action:'command',revision:saved.revision,commandId:randomUUID(),command:{...c,cityLevel:saved.progress.cityLevel}}));assert.equal(result.status,200);saved=result.data;return saved.progress;};
+ const command=async(c)=>{serverClock+=2000;const result=await progress.POST(request(101,{action:'command',revision:saved.revision,commandId:randomUUID(),command:{...c,cityLevel:saved.progress.cityLevel}}));assert.equal(result.status,200);saved=result.data;return saved.progress;};
  for(const mission of g.LEVELS){
   await command({type:'finish',id:mission.id});assert.equal(saved.progress.completed.length,mission.id-1,'Cannot finish before collecting');
   for(let index=0;index<mission.required;index++)await command({type:'collect',id:mission.id,index});
@@ -77,6 +80,25 @@ function load(file,mocks={}){
  // Chain verification itself is covered in ton.cjs; simulate its persisted result here.
  await db.query("update blu_testnet_withdrawals set status='confirmed',tx_hash='verified-chain-proof' where id=$1",[body.requestId]);
  const confirmed=await withdrawal.POST(request(101,{action:'status'}));assert.equal(confirmed.data.requests[0].status,'confirmed');assert.equal(confirmed.data.requests[0].tx_hash,'verified-chain-proof');
+ // Two independently loaded handlers share the durable per-user guard.
+ const otherHandler=load('app/api/progress/route.ts',mocks);
+ serverClock+=60000;saved=await open();
+ const flood=async(handler=progress,user=101)=>handler.POST(request(user,{action:'command',revision:user===101?saved.revision:0,commandId:randomUUID(),command:{type:'equip',id:'classic'}}));
+ for(let n=0;n<8;n++){const r=await flood(n%2?otherHandler:progress);assert.equal(r.status,200);saved=r.data;}
+ const beforeBlocked=saved.revision,blocked=await flood(otherHandler);assert.equal(blocked.status,429);assert.equal(blocked.data.code,'COMMAND_RATE_LIMIT');assert.equal((await open()).revision,beforeBlocked);
+ assert.equal((await flood(otherHandler,202)).status,200,'Another player has an independent limit');
+ const stored=(await db.query('select city_save from blu_players where telegram_id=101')).rows[0].city_save;assert.equal(stored._serverRate.burst.count,8);assert.equal(saved.progress._serverRate,undefined,'Private limiter metadata is not sent to clients');
+ serverClock+=60000;
+ for(let n=0;n<60;n++){serverClock+=1001;const r=await flood();assert.equal(r.status,200);saved=r.data;}
+ const minuteBlocked=await flood(otherHandler);assert.equal(minuteBlocked.status,429);assert.ok(minuteBlocked.data.retryAfterMs>0&&minuteBlocked.data.retryAfterMs<=60000);
+ serverClock+=minuteBlocked.data.retryAfterMs;const resumed=await flood();assert.equal(resumed.status,200);assert.equal(resumed.data.progress.coins,240);
+ saved=resumed.data;
+ const send=async(command,id=randomUUID())=>progress.POST(request(101,{action:'command',revision:saved.revision,commandId:id,command}));
+ let r=await send({type:'daily'});assert.equal(r.status,200);saved=r.data;
+ for(const index of [1,2]){r=await send({type:'collect',id:1,index,cityLevel:2});assert.equal(r.status,200);saved=r.data;}
+ const finishId=randomUUID(),rewardBlocked=await send({type:'finish',id:1,cityLevel:2},finishId);assert.equal(rewardBlocked.status,429);assert.equal((await open()).progress.completed.length,0,'Blocked reward does not mark a mission complete');
+ const coinsBefore=saved.progress.coins;serverClock+=rewardBlocked.data.retryAfterMs;r=await send({type:'finish',id:1,cityLevel:2},finishId);assert.equal(r.status,200);assert.equal(r.data.progress.coins,coinsBefore+100);assert.equal(r.data.progress.completed.length,1);
  console.log('PASS: real API + SQL journey: new account, six missions, persisted checkpoints, equipment, dash, conversion, withdrawal retry, revision conflict, city 2, account isolation and confirmed status');
+ console.log('PASS: durable burst/minute limits across handlers, account separation, no write on 429, hidden metadata and recovery after expiry');
  }finally{if(previous===undefined)delete process.env.BLU_TESTNET_WITHDRAWALS_ENABLED;else process.env.BLU_TESTNET_WITHDRAWALS_ENABLED=previous;await db.close();}
 })().catch(error=>{console.error(error);process.exitCode=1;});
