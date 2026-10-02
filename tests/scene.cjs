@@ -8,9 +8,16 @@ class Renderer{constructor(){this.domElement=element();}setPixelRatio(){}setSize
 class Rig{constructor(){this.root=new THREE.Group();}update(){}setEnergy(){}setEquipment(){}jump(){}land(){}dispose(){}}
 let rejectFinish=false;
 const store={useWalletTesting:()=>false,setMissionPosition(){},getProgress:()=>progress,getSyncStatus:()=> 'device',dispatchProgress:c=>(progress=rejectFinish&&c.type==='finish'?progress:g.applyCommand(progress,c,clock)),checkpointProgress:s=>{for(const l of g.LEVELS){const flags=l.id===1?s.cells:l.id===2?s.metro:s.objectives[l.id];flags.forEach((v,i)=>{if(v)progress=g.applyCommand(progress,{type:'collect',id:l.id,index:i},clock);});if(l.id===1?s.restored:l.id===2?s.metroDone:s.completed.includes(l.id))progress=g.applyCommand(progress,{type:'finish',id:l.id},clock);}return progress;}};
-let source=fs.readFileSync('app/components/PlayableCity.tsx','utf8');source=source.replace('const key = new Set<string>();','globalThis.sceneTest={state,input:input.current};const key = new Set<string>();');
+let source=fs.readFileSync('app/components/PlayableCity.tsx','utf8');source=source.replace('const key = new Set<string>();','globalThis.sceneTest={state,input:input.current,camera};const key = new Set<string>();');
 const out=ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2020,jsx:ts.JsxEmit.ReactJSX}}).outputText;const mod={exports:{}};const ctx={exports:mod.exports,module:mod,require:n=>n.includes("i18n")?require("./i18n-helper.cjs"):n==='react'?react:n==='three'?new Proxy(THREE,{get:(o,k)=>k==='WebGLRenderer'?Renderer:o[k]}):n==='./BluRig'?{BluRig:Rig,toon:c=>new THREE.MeshToonMaterial({color:c})}:n.includes('progress-store')?store:n.includes('levels')?g:require(n),document:{hidden:false,createElement:element},window:{addEventListener(){},removeEventListener(){}},navigator:{vibrate(){}},localStorage:{getItem(){return null;}},performance:{now:()=>clock},devicePixelRatio:1,ResizeObserver:class{constructor(fn){this.fn=fn;}observe(){this.fn();}disconnect(){}},requestAnimationFrame:fn=>(frame=fn,1),cancelAnimationFrame(){},Date,Math,Array,Set,JSON,Number};vm.createContext(ctx);vm.runInContext(out,ctx);mod.exports.default({lang:'en',onMenu(){},onReward(){},serverRestored:false});effects[0]();const scene=ctx.sceneTest;
 const tick=(n=1)=>{for(let i=0;i<n;i++){clock+=40;frame();}};scene.input.start=true;tick();
+// Keep the character inside the unobstructed center of portrait screens.
+for(const [x,z,y] of [[-35,-20,0],[35,-20,0],[0,-50,7]]){
+ scene.state.pos.set(x,y,z);scene.state.vy=0;tick(20);
+ scene.camera.updateMatrixWorld();
+ const projected=scene.state.pos.clone().add(new THREE.Vector3(0,1,0)).project(scene.camera);
+ assert.ok(Math.abs(projected.x)<.6 && Math.abs(projected.y)<.6,'BLU must stay centered at side streets and roof height');
+}
 const visit=(x,z,y=0)=>{scene.state.pos.set(x,y,z);scene.state.vy=0;tick(2);};
 for(const[x,z]of[[-11,-8],[12,-23],[-4,-43]])visit(x,z);assert.equal(hud.cells,3);visit(0,-35);scene.input.charge=true;tick(50);scene.input.charge=false;assert.equal(progress.completed.length,1);assert.equal(progress.coins,100);
 scene.input.next=true;tick();for(const[x,z]of[[-13,-44],[11,-49]])visit(x,z);visit(-9,-50);scene.input.charge=true;tick(50);scene.input.charge=false;assert.equal(progress.completed.length,2);

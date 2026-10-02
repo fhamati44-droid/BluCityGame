@@ -885,10 +885,10 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored, c
                 }
             trail.forEach((o, i) => { o.visible = state.over > 0 || state.dash > 0; o.position.set(state.pos.x - Math.sin(state.yaw) * (.6 + i * .45) + Math.sin(state.time * 12 + i) * .2, state.pos.y + .8 + Math.sin(state.time * 9 + i) * .25, state.pos.z - Math.cos(state.yaw) * (.6 + i * .45)); o.scale.setScalar(.14 - i * .02); });
             // Camera: title shot in front of BLU, then chase camera
-            const desired = playing ? tmpV.set(state.pos.x * .85, state.pos.y + 4.1 + (state.vy > 0 ? .4 : 0), state.pos.z + (state.dash > 0 ? 8.2 : 7.2)) : tmpV.set(state.pos.x + 1.4 + Math.sin(state.time * .3) * .5, 2.1, state.pos.z + 5.6);
-            camPos.lerp(desired, 1 - Math.exp(-(playing ? 5 : 2.5) * dt));
-            const lookGoal = playing ? new THREE.Vector3(state.pos.x, state.pos.y + 1.6, state.pos.z - 9) : new THREE.Vector3(state.pos.x - .9, 1.55, state.pos.z - 4);
-            look.lerp(lookGoal, 1 - Math.exp(-5 * dt));
+            const desired = playing ? tmpV.set(state.pos.x, state.pos.y + 4.1 + (state.vy > 0 ? .4 : 0), state.pos.z + (state.dash > 0 ? 8.2 : 7.2)) : tmpV.set(state.pos.x + 1.4 + Math.sin(state.time * .3) * .5, 2.1, state.pos.z + 5.6);
+            camPos.lerp(desired, 1 - Math.exp(-(playing ? 10 : 2.5) * dt));
+            const lookGoal = playing ? new THREE.Vector3(state.pos.x, state.pos.y + 1.2, state.pos.z - 1) : new THREE.Vector3(state.pos.x - .9, 1.55, state.pos.z - 4);
+            look.lerp(lookGoal, 1 - Math.exp(-(playing ? 10 : 5) * dt));
             state.shake = Math.max(0, state.shake - dt);
             const sh = state.shake * .5;
             camera.position.set(camPos.x + (Math.random() - .5) * sh, camPos.y + (Math.random() - .5) * sh, camPos.z);
