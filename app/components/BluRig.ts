@@ -50,7 +50,7 @@ export class BluRig {
   private arms: Arm[] = []; private legs: Leg[] = [];
   private eyes: THREE.Group[] = []; private irises: THREE.Group[] = []; private brows: THREE.Group[] = [];
   private mouth = new THREE.Group();
-  private bodyMat: THREE.MeshToonMaterial;
+  private bodyMat: THREE.MeshStandardMaterial;
   private shoeMat!: THREE.MeshToonMaterial; private gloveMat!: THREE.MeshToonMaterial; private lastLook="";
   private decalCanvas: HTMLCanvasElement; private decalTex: THREE.CanvasTexture; private decalBars = -1;
   private backBolt: THREE.MeshBasicMaterial;
@@ -63,8 +63,8 @@ export class BluRig {
 
   constructor() {
     const R = 0.56, H = 1.45, LEG = 0.8;
-    const blue = toon(0x1f7bff), rim = toon(0x7fd4ff), navy = toon(0x17306a), white = toon(0xffffff), silver = toon(0xcfdcec), shoe = toon(0x1c5fe6);
-    this.bodyMat = blue as THREE.MeshToonMaterial;this.shoeMat=shoe as THREE.MeshToonMaterial;this.gloveMat=toon(0xffffff) as THREE.MeshToonMaterial;this.disposables.push(this.gloveMat);
+    const blue = new THREE.MeshStandardMaterial({color:0x1f7bff,roughness:.3,metalness:.22,emissive:0x2aa8ff,emissiveIntensity:.12}), rim = toon(0x7fd4ff), navy = toon(0x17306a), white = toon(0xffffff), silver = toon(0xcfdcec), shoe = toon(0x1c5fe6);
+    this.bodyMat = blue;this.shoeMat=shoe as THREE.MeshToonMaterial;this.gloveMat=toon(0xffffff) as THREE.MeshToonMaterial;this.disposables.push(this.gloveMat);
     this.disposables.push(blue, rim, navy, white, silver, shoe, this.outlineMat);
     const add = (geo: THREE.BufferGeometry, mat: THREE.Material, parent: THREE.Object3D, ink = 0.022) => {
       const m = new THREE.Mesh(geo, mat); parent.add(m); this.disposables.push(geo);

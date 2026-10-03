@@ -63,6 +63,11 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored, c
     callbacks.current.onReward = onReward;
     const [unsupported, setUnsupported] = useState(false);
     const [paused, setPaused] = useState(false);
+    const [missionExpanded, setMissionExpanded] = useState(false);
+    const [gestureMode, setGestureMode] = useState(false);
+    const gestureRef = useRef(false), laneRef = useRef(0);
+    gestureRef.current = gestureMode;
+
     const pausedRef = useRef(false);
     pausedRef.current = paused;
     const [started, setStarted] = useState(false);
@@ -123,7 +128,7 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored, c
         const skyGeo = new THREE.SphereGeometry(300, 32, 16);
         const cols: number[] = [];
         const pos = skyGeo.attributes.position;
-        const top = new THREE.Color(0x3f5cff), mid = new THREE.Color(0x9d86ff), low = new THREE.Color(0xffb690), tmp = new THREE.Color();
+        const top = new THREE.Color(0x18275c), mid = new THREE.Color(0x6757a5), low = new THREE.Color(0xf49c83), tmp = new THREE.Color();
         for (let i = 0; i < pos.count; i++) {
             const y = pos.getY(i) / 300;
             if (y > .25)
@@ -149,11 +154,14 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored, c
         const sunLight = new THREE.DirectionalLight(0xffe0bd, 2.1);
         sunLight.position.set(-18, 30, 14);
         scene.add(sunLight);
+        // One shared glossy asphalt material; avoid expensive reflection passes.
+        const roadMaterial = new THREE.MeshStandardMaterial({color:0x222f49,roughness:.28,metalness:.25});
+        disposables.push(roadMaterial);
         // Streets
         box(120, .4, 170, T(0x7bd88f), 0, -.3, -36);
-        box(31, .06, 110, T(0x3f4470), 0, -.07, -30);
+        box(31, .06, 110, roadMaterial, 0, -.07, -30);
         for (const z of [-16, -36]) {
-            box(80, .07, 8, T(0x3f4470), 0, -.04, z);
+            box(80, .07, 8, roadMaterial, 0, -.04, z);
             for (let x = -36; x < 36; x += 3)
                 box(1.2, .08, .9, B(0xffffff), x, -.02, z + 2.2);
         }
@@ -451,7 +459,7 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored, c
         window.addEventListener('keyup', up);
         const size = { w: 1, h: 1 };
         const resize = new ResizeObserver(() => { const w = mount.clientWidth, h = mount.clientHeight; if (!w || !h)
-            return; size.w = w; size.h = h; renderer.setSize(w, h, false); camera.aspect = w / h; camera.fov = w / h < .7 ? 70 : 62; camera.updateProjectionMatrix(); });
+            return; size.w = w; size.h = h; renderer.setSize(w, h, false); camera.aspect = w / h; camera.fov = 70; camera.updateProjectionMatrix(); });
         resize.observe(mount);
         // Floating text popups projected from world space
         const popup = (text: string, at: THREE.Vector3, kind = '') => { const layer = fx.current; if (!layer)
@@ -470,6 +478,7 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored, c
             const dx = target.x - state.pos.x, dz = target.z - state.pos.z;
             setStatus({ carrying: carriedCell !== null, escorting: escort, escortReady: escort && mechanic.position.distanceTo(terminals[5]) < 5, nodeReady: activeLevel === 6 && extra[6].some((o, i) => !progress.objectives[6][i] && state.pos.distanceTo(o.position) < 1.8), completed: [...progress.completed], sync: getSyncStatus(), extraGot: progress.objectives[activeLevel].filter(Boolean).length, levelDone: progress.completed.includes(activeLevel), runTime: Math.round(state.time), runDone, cells: found.filter(Boolean).length, metroCells: metroFound.filter(Boolean).length, energy: Math.round(state.energy), meters: Math.round(Math.hypot(dx, dz) * worldScale), direction: Math.atan2(dx, -dz), restored, metroDone, level: activeLevel, coins: progress.coins, blu: progress.blu, dashLevel: progress.dashLevel, celebrating: (challenge ? runDone : progress.completed.includes(activeLevel)) && ((extraCelebrate > 0 && state.time - extraCelebrate < 3.6) || (state.restoreTime > 0 && state.time - state.restoreTime < 3.6) || (state.metroTime > 0 && state.time - state.metroTime < 3.6)), nearby: challenge ? state.pos.distanceTo(runFinish) < 4 : activeLevel > 2 ? state.pos.distanceTo(terminals[activeLevel]) < 4 : activeLevel === 2 ? Math.hypot(state.pos.x + 9, state.pos.z + 50) < 4.2 : Math.hypot(state.pos.x, state.pos.z + 35) < 4.2, overcharge: state.over > 0, rail: state.onRail, secret: state.pos.x > 13 && state.pos.z < -23, charge: state.charge, dashing: state.dash > 0, score: Math.round(state.bolts * 10 + state.travelled), bolts: state.bolts, tutorial: startedRef.current && state.travelled < 6 });
         };
+        const controlReset = () => {input.current.x=0;input.current.y=0;input.current.charge=false;};
         const animate = () => {
             frame = requestAnimationFrame(animate);
             const now = performance.now();
@@ -485,10 +494,16 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored, c
                 progress = dispatchProgress({ type: "dash" });
                 publish();
             }
-            if (document.hidden || pausedRef.current)
+            if (document.hidden || pausedRef.current) {
+                controlReset();
                 return;
+            }
             state.time += dt;
             const control = input.current;
+            if (challenge && gestureRef.current && startedRef.current) {
+                control.x = THREE.MathUtils.clamp((laneRef.current * 6 - state.pos.x) * .65, -1, 1);
+                control.y = state.pos.z <= -49 || control.charge ? 0 : -1;
+            }
             const playing = startedRef.current;
             if (control.start) {
                 control.start = false;
@@ -889,9 +904,9 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored, c
             // Camera: title shot in front of BLU, then chase camera
             // Simulation coordinates scale with the city; camera distances do not.
             const playerX = state.pos.x * worldScale, playerZ = state.pos.z * worldScale;
-            const desired = playing ? tmpV.set(playerX, state.pos.y + 3.2 + (state.vy > 0 ? .3 : 0), playerZ + (state.dash > 0 ? 5.8 : 5.2)) : tmpV.set(playerX + 1.4 + Math.sin(state.time * .3) * .5, 2.1, playerZ + 5.6);
+            const desired = playing ? tmpV.set(playerX, state.pos.y + 3.8 + (state.vy > 0 ? .3 : 0), playerZ + (state.dash > 0 ? 7 : 6.4)) : tmpV.set(playerX + 1.4 + Math.sin(state.time * .3) * .5, 2.1, playerZ + 5.6);
             camPos.lerp(desired, 1 - Math.exp(-(playing ? 10 : 2.5) * dt));
-            const lookGoal = playing ? new THREE.Vector3(playerX, state.pos.y + 1.1, playerZ - .4) : new THREE.Vector3(playerX - .9, 1.55, playerZ - 4);
+            const lookGoal = playing ? new THREE.Vector3(playerX, state.pos.y + 1.4, playerZ - 1) : new THREE.Vector3(playerX - .9, 1.55, playerZ - 4);
             look.lerp(lookGoal, 1 - Math.exp(-(playing ? 10 : 5) * dt));
             state.shake = Math.max(0, state.shake - dt);
             const sh = state.shake * .5;
@@ -907,8 +922,8 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored, c
                 if (obstruction) camera.position.copy(cameraTarget).addScaledVector(cameraDirection, Math.max(.6, obstruction.distance - .35));
             }
             camera.lookAt(look);
-            const fovBase = size.w / size.h < .7 ? 70 : 62;
-            camera.fov = THREE.MathUtils.damp(camera.fov, fovBase + (state.dash > 0 || state.over > 0 ? 10 : 0), 5, dt);
+            const fovBase = 70;
+            camera.fov = THREE.MathUtils.damp(camera.fov, fovBase + (state.dash > 0 || state.over > 0 ? 4 : 0), 5, dt);
             camera.updateProjectionMatrix();
             sky.position.copy(camera.position);
             if (state.time - state.lastHud > .15) {
@@ -922,16 +937,29 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored, c
         return () => { cancelAnimationFrame(frame); resize.disconnect(); window.removeEventListener('keydown', down); window.removeEventListener('keyup', up); mats.forEach(m => m.dispose()); disposables.forEach(d => d.dispose()); windowsMesh.dispose(); boltMesh.dispose(); renderer.dispose(); renderer.domElement.remove(); };
     }, [serverRestored, challenge, mission]);
     // Touch: swipe up = jump, down = slide, sideways = dash (anywhere on the stage)
-    const touch = useRef<{
-        x: number;
-        y: number;
-    } | null>(null);
-    const onTouchStart = (e: React.TouchEvent) => { const p = e.touches[0]; touch.current = { x: p.clientX, y: p.clientY }; };
-    const onTouchEnd = (e: React.TouchEvent) => { if (!touch.current)
-        return; const p = e.changedTouches[0], dx = p.clientX - touch.current.x, dy = p.clientY - touch.current.y; if (Math.abs(dy) > 35 && Math.abs(dy) > Math.abs(dx))
-        input.current[dy < 0 ? 'jump' : 'slide'] = true;
-    else if (Math.abs(dx) > 35)
-        input.current.dash = true; touch.current = null; };
+    useEffect(() => { try { setGestureMode(localStorage.getItem('blu_gestures') === '1'); } catch {} }, []);
+    const lastTap = useRef(0);
+    const touch = useRef<{ x: number; y: number; moved: boolean } | null>(null);
+    const onTouchStart = (e: React.TouchEvent) => {
+        const p=e.touches[0];touch.current={x:p.clientX,y:p.clientY,moved:false};
+        if(gestureMode && canCharge) input.current.charge=true;
+    };
+    const onTouchMove = (e: React.TouchEvent) => {
+        if(!touch.current || !gestureMode)return;
+        const p=e.touches[0],dx=p.clientX-touch.current.x,dy=p.clientY-touch.current.y;
+        if(Math.hypot(dx,dy)>20){touch.current.moved=true;input.current.charge=false;}
+        // Story missions keep full two-axis travel with a floating touch origin.
+        if(!challenge){input.current.x=Math.max(-1,Math.min(1,dx/65));input.current.y=Math.max(-1,Math.min(1,dy/65));}
+    };
+    const onTouchEnd = (e: React.TouchEvent) => {
+        if(!touch.current)return;
+        const p=e.changedTouches[0],dx=p.clientX-touch.current.x,dy=p.clientY-touch.current.y;
+        if(Math.abs(dy)>35 && Math.abs(dy)>Math.abs(dx)) input.current[dy<0?'jump':'slide']=true;
+        else if(Math.abs(dx)>35){if(challenge&&gestureMode)laneRef.current=Math.max(-1,Math.min(1,laneRef.current+(dx>0?1:-1)));else if(!gestureMode)input.current.dash=true;}
+        if(gestureMode && !touch.current.moved && !canCharge){const now=performance.now();if(now-lastTap.current<280)input.current.dash=true;lastTap.current=now;}
+        input.current.charge=false;input.current.x=0;input.current.y=0;touch.current=null;
+    };
+    const cancelTouch=()=>{touch.current=null;input.current.charge=false;input.current.x=0;input.current.y=0;};
     const stick = (e: React.PointerEvent<HTMLDivElement>) => { const r = e.currentTarget.getBoundingClientRect(); let x = (e.clientX - r.left - r.width / 2) / (r.width / 2), y = (e.clientY - r.top - r.height / 2) / (r.height / 2); const l = Math.hypot(x, y); if (l > 1) {
         x /= l;
         y /= l;
@@ -947,7 +975,7 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored, c
     const canCharge = challenge ? status.nearby && status.bolts >= 20 && status.runTime >= 20 && !status.runDone : status.nodeReady || status.nearby && (status.level !== 5 || status.escortReady) && (status.level > 2 ? !status.levelDone && status.extraGot === total : status.level === 1 ? !status.restored && status.cells === 3 : !status.metroDone && status.metroCells === 2);
     const segs = Math.ceil(status.energy / 20);
     return <div className={`play-root ${status.dashing || status.overcharge ? 'is-fast' : ''}`} dir={isRtl(lang)?'rtl':'ltr'}>
-    <div ref={host} className="play-stage" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd} onClick={() => { if (!started)
+    <div ref={host} className="play-stage" onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd} onTouchCancel={cancelTouch} onClick={() => { if (!started)
         input.current.start = true; }}/>
     <div className="speed-lines" aria-hidden="true"/>
     <div ref={fx} className="fx-layer" aria-hidden="true"/>
@@ -967,16 +995,16 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored, c
           <div ref={boltChip} className="hud-bolts" aria-label={ui.coins}><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M13 2 4 13h7l-1 9 10-12h-7l1-8Z" fill="#ffd43b" stroke="#0b2a5b" strokeWidth="2" strokeLinejoin="round"/></svg>{status.coins}</div>
         </div>
       </div>
-      <div className="hud-mission">
+      <button type="button" className={`hud-mission ${missionExpanded || status.levelDone ? 'expanded' : ''}`} aria-expanded={missionExpanded || status.levelDone} aria-label={objective} onClick={()=>setMissionExpanded(v=>!v)}>
         <span className="mission-arrow" style={{ transform: `rotate(${status.direction}rad)` }} aria-hidden="true">▲</span>
         <div><strong>{challenge ? (translateValue(lang, lang === 'he' ? 'מסלול האנרגיה' : translateValue(lang, lang === 'ar' ? 'مسار الطاقة' : 'Energy circuit'))) : localized(lang, LEVELS[status.level - 1].names)}</strong><span className="mission-objective">{objective}</span><small>{challenge ? `${status.bolts}/20 · ${status.runTime}s` : `${got}/${total} · ${status.meters} m`}</small></div>
         {!status.levelDone && !challenge && <div className="pips">{Array.from({ length: total }, (_, i) => <i key={i} className={i < got ? (status.level === 2 ? 'on pink' : 'on') : ''}/>)}</div>}
-      </div>
+      </button>
       {(status.sync === "sync-error" || status.sync === "offline" || status.sync === "storage-error") && <div className="play-tutorial" role="alert">{translateValue(lang, lang === "he" ? "שמירת ההתקדמות נכשלה. צא לתפריט ופתח מחדש כדי לנסות לסנכרן" : translateValue(lang, lang === "ar" ? "فشل حفظ التقدم. افتح اللعبة مجددًا لمحاولة المزامنة" : "Progress save failed. Reopen the game to retry sync"))}</div>}
       {status.tutorial && <div className="play-tutorial">{t.start}</div>}
       {status.celebrating && <div className="victory"><div className="rays"/><strong>{extended.done}</strong><span>{localized(lang, LEVELS[status.level - 1].names)}</span></div>}
       {!challenge && status.levelDone && !status.celebrating && <div className="level-complete"><strong>{ui.reward}{LEVELS[status.level - 1].rewardCoins} {ui.coins}</strong><button className="btn3d yellow" onClick={() => { input.current.next = true; }}>{status.level < 6 ? `${extended.next} · ${ui.level} ${status.level + 1}` : `${translateValue(lang, lang === 'he' ? 'העיר התעוררה! לעיר הבאה' : translateValue(lang, lang === 'ar' ? 'المدينة استيقظت! للمدينة التالية' : 'City awakened! Next city'))} · Level ${city + 1}`}</button></div>}{challenge && status.runDone && <div className="level-complete"><strong>+40 Coin</strong><button className="btn3d yellow" onClick={onMenu}>{t.menu}</button></div>}
-      <div className="play-controls">
+      <div className={`play-controls ${gestureMode ? "gesture-controls" : ""}`}>
         <div className="play-stick" onPointerDown={e => { e.currentTarget.setPointerCapture(e.pointerId); stick(e); }} onPointerMove={e => { if (e.currentTarget.hasPointerCapture(e.pointerId))
             stick(e); }} onPointerUp={release} onPointerCancel={release}><span ref={knob}/></div>
         <div className="play-actions">
@@ -985,7 +1013,7 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored, c
           <button className="btn3d round yellow act-jump" onPointerDown={() => { input.current.jump = true; }}><span>{t.jump}</span></button>
         </div>
       </div>
-      {paused && <div className="play-pause"><div className="pause-card"><h2>{t.pause}</h2>{LEVELS.map(level => <p key={level.id}>{ui.level} {level.id} · {localized(lang, level.names)} {status.completed.includes(level.id) ? "✓" : level.id === status.level ? `${got}/${level.required}` : ui.locked}</p>)}<p>{ui.coins}: {status.coins}{walletTesting ? ` · BLU: ${status.blu}` : ""}</p><p>{ui.dash}: {status.dashLevel}/3</p>{walletTesting && <button className="btn3d yellow" disabled={status.coins < COINS_PER_BLU} onClick={() => { input.current.exchange = true; }}>{ui.exchange}</button>}<button className="btn3d blue" disabled={status.coins < 120 && (!walletTesting || status.blu < DASH_COST_BLU) || status.dashLevel >= 3} onClick={() => { input.current.upgrade = true; }}>{ui.dash} · 120 Coin</button><small>{getSyncStatus() === "cloud" ? "Cloud save" : ui.local}</small><button className="btn3d yellow" onClick={() => setPaused(false)}>{t.continue}</button><button className="btn3d blue" onClick={onMenu}>{t.menu}</button></div></div>}
+      {paused && <div className="play-pause"><div className="pause-card"><h2>{t.pause}</h2><button className="btn3d blue" onClick={()=>{cancelTouch();const value=!gestureMode;setGestureMode(value);try{localStorage.setItem('blu_gestures',value?'1':'0');}catch{}}}>{gestureMode ? '◉' : '☝'} · {localized(lang,{en:'Touch gestures',he:'שליטה במחוות',ar:'التحكم بالإيماءات'})}</button><p>{localized(lang,{en:'Drag to move · swipe up to jump · swipe down to slide · double tap to dash · hold near a beacon to charge',he:'גרור לתנועה · למעלה לקפיצה · למטה להחלקה · הקש פעמיים לדאש · החזק ליד יעד לטעינה',ar:'اسحب للتحرك · للأعلى للقفز · للأسفل للانزلاق · انقر مرتين للاندفاع · اضغط مطولًا قرب الهدف للشحن'})}</p>{LEVELS.map(level => <p key={level.id}>{ui.level} {level.id} · {localized(lang, level.names)} {status.completed.includes(level.id) ? "✓" : level.id === status.level ? `${got}/${level.required}` : ui.locked}</p>)}<p>{ui.coins}: {status.coins}{walletTesting ? ` · BLU: ${status.blu}` : ""}</p><p>{ui.dash}: {status.dashLevel}/3</p>{walletTesting && <button className="btn3d yellow" disabled={status.coins < COINS_PER_BLU} onClick={() => { input.current.exchange = true; }}>{ui.exchange}</button>}<button className="btn3d blue" disabled={status.coins < 120 && (!walletTesting || status.blu < DASH_COST_BLU) || status.dashLevel >= 3} onClick={() => { input.current.upgrade = true; }}>{ui.dash} · 120 Coin</button><small>{getSyncStatus() === "cloud" ? "Cloud save" : ui.local}</small><button className="btn3d yellow" onClick={() => setPaused(false)}>{t.continue}</button><button className="btn3d blue" onClick={onMenu}>{t.menu}</button></div></div>}
     </>}
   </div>;
 }

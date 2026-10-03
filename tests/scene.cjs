@@ -54,3 +54,13 @@ for(const cityLevel of [1,4,9]){
  assert.ok(Math.abs(top.y-bottom.y)>.25,'BLU must remain large enough on portrait screens');
 }
 console.log('PASS: world-space camera tracks cities 1, 4 and 9 with consistent visible character size');
+// Exercise real touch handlers: story movement, jump, slide, dash and interruption.
+effects=[];refs=[];progress=g.parseLevelProgress(null);
+vm.runInContext('(function(){'+ts.transpileModule(source.replace('const [gestureMode, setGestureMode] = useState(false);','const [gestureMode, setGestureMode] = useState(true);'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2020,jsx:ts.JsxEmit.ReactJSX}}).outputText+'\n})();',ctx);
+const touchTree=mod.exports.default({lang:'en',onMenu(){},onReward(){},serverRestored:false});effects[0]();
+const stage=touchTree.props.children[0].props,controls=ctx.sceneTest.input;
+const down=(x,y)=>stage.onTouchStart({touches:[{clientX:x,clientY:y}]}),up=(x,y)=>stage.onTouchEnd({changedTouches:[{clientX:x,clientY:y}]});
+down(100,200);stage.onTouchMove({touches:[{clientX:165,clientY:135}]});assert.equal(controls.x,1);assert.equal(controls.y,-1);stage.onTouchCancel();assert.equal(controls.x,0);assert.equal(controls.y,0);assert.equal(controls.charge,false);
+down(100,200);up(100,140);assert.equal(controls.jump,true);down(100,200);up(100,260);assert.equal(controls.slide,true);
+clock+=400;down(100,200);up(100,200);clock+=100;down(100,200);up(100,200);assert.equal(controls.dash,true);
+console.log('PASS: actual gesture handlers support free travel, jump, slide, double-tap dash and cancel reset');

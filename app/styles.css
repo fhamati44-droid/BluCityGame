@@ -131,3 +131,16 @@
 .hud-mission strong{font-size:13px;line-height:1.15}
 .mission-objective{display:block;font-size:12px;line-height:1.2;margin-top:3px}
 .hud-mission .pips{flex-shrink:0}
+
+/* Compact glass HUD keeps the road visible. */
+.hud-mission{left:12px;right:auto;top:calc(102px + env(safe-area-inset-top));transform:none!important;background:#0b203cce;color:#ecfaff;border:1px solid #89deff66;border-radius:24px;box-shadow:0 3px 12px #0003;backdrop-filter:blur(6px);text-align:start;padding:8px 12px;max-width:min(80vw,320px)}
+.hud-mission:not(.expanded) strong,.hud-mission:not(.expanded) .mission-objective,.hud-mission:not(.expanded) .pips{display:none}
+.hud-mission small{color:#bceeff;margin:0;font-size:13px}
+.mission-arrow{width:23px;height:23px;border:0;background:#23a9ce;font-size:11px}
+.hud-score,.hud-bolts,.hud-battery{background:#0b203cbb;color:#f2fcff;border:1px solid #9bddff55;box-shadow:none;backdrop-filter:blur(5px)}
+.hud-score{font-size:23px;padding:6px 12px;border-radius:20px;-webkit-text-stroke:0;text-shadow:none}
+.hud-bolts{font-size:17px}.hud-pause{width:42px;height:42px}
+.play-stick{width:98px;height:98px}.play-stick span{width:42px;height:42px}
+.act-jump,.act-charge{width:66px;height:66px}.act-dash{width:58px;height:58px;margin-bottom:0}
+.play-actions .btn3d span{font-size:12px!important;-webkit-text-stroke:2px var(--ink)}
+.gesture-controls{display:none}

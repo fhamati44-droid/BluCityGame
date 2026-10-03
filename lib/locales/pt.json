@@ -217,5 +217,7 @@
   "Game BLU is separate from wallet BLU. Requests reserve BLU from your cloud balance": "BLU do jogo é separado do BLU da carteira. Solicitações reservam BLU do saldo na nuvem",
   "Request recorded and awaiting transfer. Tokens have not been sent yet": "Solicitação registrada e aguardando transferência. Tokens ainda não enviados",
   "Up to 10 BLU per day. A request is confirmed only after its on-chain transfer is verified": "Até 10 BLU por dia. Confirmação somente após verificar a transferência na blockchain",
-  "Metro rush": "Corrida do metro"
+  "Metro rush": "Corrida do metro",
+  "Touch gestures": "Gestos de toque",
+  "Drag to move · swipe up to jump · swipe down to slide · double tap to dash · hold near a beacon to charge": "Arraste para mover · deslize para cima para pular · para baixo para deslizar · toque duas vezes para impulso · segure perto do farol para carregar"
 }
