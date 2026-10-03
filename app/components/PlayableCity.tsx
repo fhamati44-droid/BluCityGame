@@ -337,7 +337,7 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored, c
             }
         // Instanced leaf clusters give each crown an irregular silhouette without one draw per leaf.
         const leafGeometry=new THREE.IcosahedronGeometry(1,1);disposables.push(leafGeometry);
-        const treeSites=[...Array.from({length:7},(_,i)=>({x:19.3,z:8-i*12})),...HERITAGE_PLOTS.map(({z})=>({x:-19.3,z}))];
+        const treeSites=[...[8,-4,-26,-48,-60,-72].map(z=>({x:19.3,z})),...HERITAGE_PLOTS.map(({z})=>({x:-19.3,z}))];
         const leafMatrix=new THREE.Object3D();
         const foliageColors=[0x567648,0x819451,0x9ba05c];
         foliageColors.forEach((color,tone)=>{
@@ -607,8 +607,8 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored, c
             detail(9.6,.3,4.5,0xd4c4aa,t.x,t.y+5.25,t.z-6.1);
         }
         // Sidewalk furnishings stay outside the playable road and mission checkpoints.
-        for(const side of [1])for(let i=0;i<7;i++){
-            const x=side*19.3,z=8-i*12;
+        for(const side of [1])for(let i=0;i<6;i++){
+            const x=side*19.3,z=[8,-4,-26,-48,-60,-72][i];
             detail(2.8,.65,1.4,0x9a8979,x,.325,z);
             detail(2.4,.035,1,0x635447,x,.67,z);
 
