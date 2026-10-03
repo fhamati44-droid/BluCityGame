@@ -3,7 +3,7 @@ import { localized, translateValue, isRtl, type Lang } from '../../lib/i18n';
 import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { getProgress, checkpointProgress, dispatchProgress, getSyncStatus, useWalletTesting, setMissionPosition } from '../../lib/progress-store';
-import { unlockedLevel, cityScale, cityName, cityMissions, missionInstruction, campaignCityIndex, CAMPAIGN_THEMES, CAMPAIGN_CITY_COUNT } from '../../lib/levels';
+import { businessPlot, overlapsBusinessPlot, applyCommand, type GameCommand, type LevelProgress, unlockedLevel, cityScale, cityName, cityMissions, missionInstruction, campaignCityIndex, CAMPAIGN_THEMES, CAMPAIGN_CITY_COUNT } from '../../lib/levels';
 import { SPONSOR_SLOTS, localSponsorLogo } from '../../lib/sponsors';
 import { BluRig, toon } from './BluRig';
 import { completeLevel, exchangeCoins, upgradeDash, COINS_PER_BLU, DASH_COST_BLU, LEVELS, parseLevelProgress, SAVE_KEY, type LevelId } from '../../lib/levels';
@@ -14,6 +14,7 @@ type Props = {
     serverRestored: boolean;
     challenge?: boolean;
     mission?: LevelId;
+    replay?: boolean;
 };
 const copy = {
     en: { zone: 'Central Grid', collect: 'Find 3 energy cells', generator: 'Run to the main generator', charge: 'Hold Charge to restore power', done: 'Power restored!', next: 'The Energy Tower is next', metro: 'Metro rush', metroCollect: 'Find 2 signal cores', metroStation: 'Run to the metro station', metroCharge: 'Hold Charge to start the metro', metroDone: 'Metro is running!', menu: 'Menu', jump: 'Jump', dash: 'Dash', interact: 'Charge', start: 'Stick to move · swipe up to jump', unsupported: 'This device can’t show the 3D city', resume: 'Open the city map', rail: 'Rail grind!', secret: 'Secret route!', pause: 'Paused', continue: 'Keep playing', overcharge: 'Overcharge!', tap: 'Tap to play', score: 'Score', city: 'City', flip: 'Flip!', cell: 'Energy cell!', core: 'Signal core!' },
@@ -54,7 +55,8 @@ type Status = {
     tutorial: boolean;
 };
 const PALETTE = [0xff7b8e, 0x4fd6c8, 0xffc94d, 0x8b8cff, 0xff9f5a, 0x6fd3ff, 0xc98bff];
-export default function PlayableCity({ lang, onMenu, onReward, serverRestored, challenge = false, mission }: Props) {
+export default function PlayableCity({ lang, onMenu, onReward, serverRestored, challenge = false, mission, replay = false }: Props) {
+    const exploring = useRef(!replay && getProgress().completed.length===6);
     const host = useRef<HTMLDivElement>(null);
     const fx = useRef<HTMLDivElement>(null);
     const knob = useRef<HTMLSpanElement>(null);
@@ -112,7 +114,20 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored, c
         const disposables: {
             dispose: () => void;
         }[] = [];
-        let progress = getProgress();
+        const savedProgress=getProgress();
+        let practiceProgress:LevelProgress=parseLevelProgress(JSON.stringify({...savedProgress,completed:Array.from({length:(mission??1)-1},(_,i)=>i+1),claimed:Array.from({length:(mission??1)-1},(_,i)=>i+1),objectives:{},cells:[],metro:[],restored:false,metroDone:(mission??1)>2}));
+        const readProgress=()=>replay?practiceProgress:getProgress();
+        const gameDispatch=(command:GameCommand)=>{
+            if(!replay)return dispatchProgress(command);
+            if(!['collect','finish','mission-start','mission-pickup','mission-charge','mission-escort'].includes(command.type))return practiceProgress;
+            practiceProgress={...applyCommand(practiceProgress,command),coins:savedProgress.coins,blu:savedProgress.blu};return practiceProgress;
+        };
+        const gameCheckpoint=(snapshot:LevelProgress)=>{
+            if(!replay)return checkpointProgress(snapshot);
+            const id=unlockedLevel(practiceProgress),flags=id===1?snapshot.cells:id===2?snapshot.metro:snapshot.objectives[id];
+            flags.forEach((found,index)=>{if(found)gameDispatch({type:'collect',id,index});});return practiceProgress;
+        };
+        let progress = readProgress();
         const missions = cityMissions(progress.cityLevel), theme = CAMPAIGN_THEMES[campaignCityIndex(progress.cityLevel)];
         const terminalVectors=Object.fromEntries(missions.map(m=>[m.id,new THREE.Vector3(...m.terminal as [number,number,number])]));
         const terminalDistance=(id:number)=>state.pos.distanceTo(terminalVectors[id]);
@@ -227,6 +242,7 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored, c
         for (const side of [-1, 1])
             for (let i = 0; i < 13; i++) {
                 const x = side * (24 + (i % 3) * .8), z = 12 - i * 6.9, h = (progress.cityLevel === 2 ? 5 : progress.cityLevel === 3 ? 14 : 8) + ((i * 7 + (side + 1) * 5) % 6) * (progress.cityLevel === 2 ? 1.5 : 3), color = progress.cityLevel === 1 ? PALETTE[(i + (side > 0 ? 3 : 0)) % PALETTE.length] : [theme.building,theme.roof,theme.accent][i%3];
+                if(overlapsBusinessPlot(x,z,6.8,6.2) || [-16,-36].some(cross=>Math.abs(z-cross)<7))continue;
                 cameraBlockers.push(box(6.2, h, 5.6, buildingStone(progress.cityLevel===1?[0xd2bd9d,0xb7c2ce,0xc4af9b][i%3]:progress.cityLevel===2?[0xc3b6a0,0xbca7a0,0xc3cbd1][i%3]:color), x, h / 2, z));
                 cameraBlockers.push(box(6.8, .6, 6.2, T(0x2b2f5e), x, h + .3, z));
                 box(5.4, .3, 4.8, T(0xfff3e0), x, h + .7, z);
@@ -300,10 +316,10 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored, c
                 const pool=new THREE.Mesh(poolGeometry,poolMaterial);pool.rotation.x=-Math.PI/2;pool.position.set(side*13,.015,z);scene.add(pool);lightPools.push({mesh:pool,material:poolMaterial});
             }
         for (const side of [-1, 1])
-            for (let z = 4; z > -70; z -= 11) {
-                cyl(.18, 1.4, T(0x8a5a3c), side * 19, .7, z);
-                ball(1.3, T(0x3fbf6a), side * 19, 2.3, z);
-                ball(.9, T(0x62d98a), side * 19 + .4, 3.1, z + .2);
+            for (let z = 8; z > -70; z -= 12) {
+                cyl(.18, 1.4, T(0x8a5a3c), side * 19.3, .7, z);
+                ball(1.3, T(0x3fbf6a), side * 19.3, 2.3, z);
+                ball(.9, T(0x62d98a), side * 19.3 + .4, 3.1, z + .2);
             }
         // Elevated rail + launch pad
         box(2.4, .5, 73, T(0x5b6bd6), -9.2, 5.2, -31);
@@ -386,7 +402,7 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored, c
         const shopLight = box(7, .7, .2, T(0x344252), 27, 3.3, -32.8);
         const workshop = box(7, 3.8, 6, T(0x584363), 24, 1.9, -57);
         const workshopLight = box(6, .7, .2, T(0x344252), 24, 3, -53.8);
-        const gate = box(20, 5, .5, T(0x25374c), 12, 2.5, -66);
+        const gate = box(16, 5, .5, T(0x25374c), 12, 2.5, -66);
         const districtLamp = box(18, .3, .7, T(0x344252), 12, 5.2, -66);
         const factory = box(10, 10, 8, T(0x446274), 12, 5, -86);
         cyl(1, 12, T(0x9aacbf), 19, 6, -87);
@@ -466,12 +482,12 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored, c
             ramp.rotation.x = Math.atan2(r.yb - r.ya, r.a - r.b);
         }
         // Market stalls, civic facade and neighborhood shops define each district.
-        if(progress.cityLevel===2){for(let i=0;i<6;i++){const z=-8-i*8;box(4,2.7,4,T(theme.building),-14,1.35,z);box(5,.3,5,T(theme.accent),-14,3,z);}}
+        if(progress.cityLevel===2){for(let i=0;i<6;i++){const z=-8-i*8;box(4,2.7,4,T(theme.building),-29,1.35,z);box(5,.3,5,T(theme.accent),-29,3,z);}}
         if(progress.cityLevel===3){box(15,8,8,T(0xc4cfe5),12,4,-74);for(const x of [6,10,14,18])cyl(.4,7,T(0xfff3de),x,3.5,-69.7);box(17,.8,9,T(theme.roof),12,8.4,-74);}
         const civicTraffic:THREE.MeshBasicMaterial[]=[];
         if(progress.cityLevel===3){
             for(const x of [-5,5]){cyl(.12,3.6,T(0x28394c),x,1.8,-17);const light=new THREE.MeshBasicMaterial({color:0x27384a});disposables.push(light);civicTraffic.push(light);box(.6,1.3,.4,T(0x17263c),x,3,-17);ball(.19,light,x,3.3,-16.7);}
-            cyl(.7,15,T(0x7998b5),25,7.5,-64);for(const y of [9,12,15])box(5,.15,.4,T(theme.accent),25,y,-64);
+            cyl(.7,15,T(0x7998b5),34,7.5,-94);for(const y of [9,12,15])box(5,.15,.4,T(theme.accent),34,y,-94);
         }
         const sponsorLights:{mission:number;material:THREE.MeshBasicMaterial;halo:THREE.Mesh;windows:THREE.Material}[]=[];
         let alive=true;
@@ -492,13 +508,14 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored, c
             const texture=new THREE.CanvasTexture(canvas);disposables.push(texture);
             const material=new THREE.MeshBasicMaterial({map:texture,color:0xffffff,side:THREE.DoubleSide});disposables.push(material);
             const sign=new THREE.Mesh(new THREE.PlaneGeometry(8,2.5),material);disposables.push(sign.geometry);
-            sign.position.copy(terminals[m.id]).add(new THREE.Vector3(0,4.5,-4));scene.add(sign);
+            const plot=businessPlot(m.id);
+            sign.position.set(plot.x,4.5,plot.z);scene.add(sign);
             const logo=localSponsorLogo(slot?.logo??null);
             if(logo)new THREE.TextureLoader().load(logo,loaded=>{if(!alive){loaded.dispose();return;}loaded.colorSpace=THREE.SRGBColorSpace;material.map=loaded;material.needsUpdate=true;disposables.push(loaded);},undefined,()=>{});
-            const frontage=box(9,5,4,buildingStone(0xc8baa4),sign.position.x,terminals[m.id].y+2.5,sign.position.z-2.1);
+            const frontage=box(9,5,4,buildingStone(0xc8baa4),sign.position.x,2.5,sign.position.z-2.1);
             cameraBlockers.push(frontage);
             const windows=new THREE.MeshBasicMaterial({color:0x20354b});disposables.push(windows);
-            for(const side of [-1,1])box(2.8,1.8,.12,windows,sign.position.x+side*2.6,terminals[m.id].y+1.8,sign.position.z+.12);
+            for(const side of [-1,1])box(2.8,1.8,.12,windows,sign.position.x+side*2.6,1.8,sign.position.z+.12);
             const halo=box(9.4,.18,.35,B(slot?.color??theme.accent),sign.position.x,sign.position.y+1.5,sign.position.z);
             sponsorLights.push({mission:m.id,material,halo,windows});
             // Lit frontage gives visible feedback at every completed business.
@@ -506,7 +523,7 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored, c
         }
         // Shop entrance framing and display shelves; collision remains on the existing frontage.
         for(const m of missions){
-            const t=terminals[m.id], accent=SPONSOR_SLOTS.find(s=>s.city===progress.cityLevel&&s.mission===m.id)?.color??theme.accent;
+            const plot=businessPlot(m.id),t=new THREE.Vector3(plot.x,0,plot.z+4), accent=SPONSOR_SLOTS.find(s=>s.city===progress.cityLevel&&s.mission===m.id)?.color??theme.accent;
             for(const side of [-1,1]){
                 detail(.38,5.2,.45,0xd4c4aa,t.x+side*4.5,t.y+2.6,t.z-3.7);
                 detail(2.9,.12,.28,accent,t.x+side*2.6,t.y+1.2,t.z-3.7);
@@ -523,13 +540,19 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored, c
             const x=side*19.3,z=8-i*12;
             detail(2.8,.65,1.4,0x9a8979,x,.325,z);
             detail(2.4,.5,1,progress.cityLevel===3?0x4d9d8b:0x5da569,x,.85,z);
-            detail(.35,2,.35,0x8b7057,x,1.6,z);
-            detail(2.3,1.6,2.1,progress.cityLevel===2?0x448e76:0x69ae88,x,3.1,z);
+
             if(i%2===0){
                 detail(2.4,.2,.7,0xad8256,x,.75,z-3);
                 detail(2.4,.75,.15,0xad8256,x,1.2,z-3.35);
                 for(const dx of [-.85,.85])detail(.18,.7,.6,0x263544,x+dx,.35,z-3);
             }
+        }
+        for(const z of [-10,-34,-58]){
+            detail(1.1,.15,1.1,0xb89c70,-18.5,.85,z);
+            detail(.15,.8,.15,0x344252,-18.5,.4,z);
+            for(const dz of [-1.1,1.1]){detail(.7,.12,.65,0x9e7753,-18.5,.5,z+dz);detail(.7,.7,.12,0x9e7753,-18.5,.9,z+dz+(dz>0?.35:-.35));}
+            detail(2.3,.12,2.8,0xad6e62,-18.5,3,z);
+            detail(.1,3,.1,0x344252,-19.4,1.5,z);
         }
         if(progress.cityLevel===2){
             // Overhead market festoon: a recognizable silhouette without blocking navigation.
@@ -577,8 +600,8 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored, c
             progress = { ...progress, restored: true, claimed: [...progress.claimed, 1] };
         if (metroDone && !progress.claimed.includes(2))
             progress = { ...progress, claimed: [...progress.claimed, 2] };
-        const save = () => { progress = checkpointProgress({ ...progress, cells: found, restored: progress.restored, metro: metroFound, metroDone }); };
-        const award = (id: LevelId) => { save(); progress = dispatchProgress({ type: "finish", id }); };
+        const save = () => { progress = gameCheckpoint({ ...progress, cells: found, restored: progress.restored, metro: metroFound, metroDone }); };
+        const award = (id: LevelId) => { save(); progress = gameDispatch({ type: "finish", id }); };
         cells.forEach((c, i) => { c.visible = !found[i]; });
         metroCores.forEach((c, i) => { c.visible = activeLevel === 2 && !metroFound[i]; });
         const litMats = { lamp: B(0xfff3b0), sign: T(0xff4fa3, 0xff4fa3, 1), core: B(0x6ff7ff), station: T(0x6ff7ff, 0x6ff7ff, .9) };
@@ -648,12 +671,12 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored, c
             last = now;
             if (input.current.exchange) {
                 input.current.exchange = false;
-                progress = dispatchProgress({ type: "exchange" });
+                progress = gameDispatch({ type: "exchange" });
                 publish();
             }
             if (input.current.upgrade) {
                 input.current.upgrade = false;
-                progress = dispatchProgress({ type: "dash" });
+                progress = gameDispatch({ type: "dash" });
                 publish();
             }
             if (document.hidden || pausedRef.current) {
@@ -672,17 +695,18 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored, c
                 startedRef.current = true;
                 setStarted(true);
                 if (challenge) {
-                    progress = dispatchProgress({ type: "run-start" });
+                    progress = gameDispatch({ type: "run-start" });
                     state.time = 0;
                     state.bolts = 0;
                 }
             }
             if (control.next && progress.completed.includes(activeLevel)) {
                 control.next = false;
+                if(replay){onMenu();return;}
                 if (activeLevel < 6)
                     activeLevel = (activeLevel + 1) as LevelId;
                 else {
-                    if(progress.cityLevel<CAMPAIGN_CITY_COUNT)progress = dispatchProgress({ type: 'next-city' });
+                    if(progress.cityLevel<CAMPAIGN_CITY_COUNT)progress = gameDispatch({ type: 'next-city' });
                     onMenu();
                     return;
                 }
@@ -696,9 +720,9 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored, c
                 state.metroTime = 0;
                 publish();
             }
-            setMissionPosition(state.pos);
+            if(!replay)setMissionPosition(state.pos);
             if (playing && !challenge && sessionLevel !== activeLevel && !progress.completed.includes(activeLevel)) {
-                progress = dispatchProgress({ type: 'mission-start', id: activeLevel });
+                progress = gameDispatch({ type: 'mission-start', id: activeLevel });
                 sessionLevel = activeLevel;
             }
             let horizontal = 0, forward = 0;
@@ -732,7 +756,7 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored, c
             const mag = Math.min(1, move.length());
             if (mag > 0)
                 move.normalize();
-            progress = getProgress();
+            progress = readProgress();
             restored = progress.completed.includes(1);
             metroDone = progress.completed.includes(2);
             progress.cells.forEach((v, i) => found[i] = v);
@@ -853,10 +877,10 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored, c
                 shadow.position.y = (state.onRail ? 0 : -state.pos.y) + .03;
                 shadow.scale.setScalar(Math.max(.4, 1 - state.pos.y * .06));
             }
-            setMissionPosition(state.pos);
+            if(!replay)setMissionPosition(state.pos);
             const chargingTarget = charging && !challenge ? `${activeLevel}:${activationNode}` : '';
             if (chargingTarget && chargingTarget !== chargeTarget)
-                progress = dispatchProgress({ type: 'mission-charge', id: activeLevel, ...(activationNode >= 0 ? { index: activationNode } : {}) });
+                progress = gameDispatch({ type: 'mission-charge', id: activeLevel, ...(activationNode >= 0 ? { index: activationNode } : {}) });
             chargeTarget = chargingTarget;
             // Collectibles
             const spin = state.time * 3;
@@ -925,7 +949,7 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored, c
                     award(1);
                     applyLights(false);
                     burst(tmpV.set(0, 5, -35), 0xffe27a, 40, 16, 10);
-                    callbacks.current.onReward();
+                    if(!replay)callbacks.current.onReward();
                     navigator.vibrate?.([40, 30, 90]);
                     publish();
                 }
@@ -947,7 +971,7 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored, c
             else if (charging && activationNode >= 0) {
                 state.charge = Math.min(1, state.charge + dt / 1.5);
                 if (state.charge >= 1) {
-                    progress = dispatchProgress({ type: 'collect', id: 6, index: activationNode });
+                    progress = gameDispatch({ type: 'collect', id: 6, index: activationNode });
                     state.charge = 0;
                     control.charge = false;
                     publish();
@@ -958,7 +982,7 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored, c
                 if (state.charge >= 1) {
                     if (challenge) {
                         const before = progress.runs;
-                        progress = dispatchProgress({ type: 'run-finish', bolts: state.bolts });
+                        progress = gameDispatch({ type: 'run-finish', bolts: state.bolts });
                         runDone = progress.runs > before;
                     }
                     else {
@@ -988,13 +1012,13 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored, c
                 extra[id].forEach((o, i) => { o.visible = !challenge && activeLevel === id && !progress.objectives[id][i] && !(id === 3 && carriedCell === i); o.children[0].rotation.y += dt * 2; if (o.visible && playing && id !== 6 && state.pos.distanceTo(o.position) < 1.8) {
                     if (id === 3) {
                         if (carriedCell === null) {
-                            progress = dispatchProgress({ type: 'mission-pickup', id: 3, index: i });
+                            progress = gameDispatch({ type: 'mission-pickup', id: 3, index: i });
                             carriedCell = i;
                         }
                         publish();
                         return;
                     }
-                    progress = dispatchProgress({ type: 'collect', id, index: i });
+                    progress = gameDispatch({ type: 'collect', id, index: i });
                     state.energy = Math.min(100, state.energy + 35);
                     if (state.energy >= 100)
                         state.over = progress.inventory.includes('battery') ? 10 : 7;
@@ -1005,13 +1029,13 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored, c
             }
             if (activeLevel === 3 && carriedCell !== null && state.pos.distanceTo(terminals[3]) < 2) {
                 const index = carriedCell;
-                progress = dispatchProgress({ type: 'collect', id: 3, index });
+                progress = gameDispatch({ type: 'collect', id: 3, index });
                 if (progress.objectives[3][index])
                     carriedCell = null;
                 publish();
             }
             if (activeLevel === 5 && !escort && progress.objectives[5].every(Boolean) && state.pos.distanceTo(mechanic.position) < 4) {
-                progress = dispatchProgress({ type: 'mission-escort', id: 5 });
+                progress = gameDispatch({ type: 'mission-escort', id: 5 });
                 escort = true;
             }
             if (escort && !progress.completed.includes(5)) {
@@ -1105,7 +1129,7 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored, c
         publish();
         animate();
         return () => { alive=false; cancelAnimationFrame(frame); resize.disconnect(); window.removeEventListener('keydown', down); window.removeEventListener('keyup', up); mats.forEach(m => m.dispose()); disposables.forEach(d => d.dispose()); windowsMesh.dispose(); detailMesh.dispose(); boltMesh.dispose(); renderer.dispose(); renderer.domElement.remove(); };
-    }, [serverRestored, challenge, mission]);
+    }, [serverRestored, challenge, mission, replay]);
     // Touch: swipe up = jump, down = slide, sideways = dash (anywhere on the stage)
     useEffect(() => { try { setGestureMode(localStorage.getItem('blu_gestures') === '1'); } catch {} }, []);
     const lastTap = useRef(0);
@@ -1159,7 +1183,7 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored, c
         {missionLogo && <img src={missionLogo} alt={missionSponsor?.name} style={{width:220,height:69,objectFit:'contain'}}/>}
         <strong style={{display:'block',marginTop:8}}>{localized(lang,cityLevels[status.level-1].names)}</strong>
         <p style={{fontSize:14,lineHeight:1.5,margin:'8px 0'}}>{missionInstruction(city,status.level,lang)}</p>
-        <span style={{color:'#ffe083'}}>+{cityLevels[status.level-1].rewardCoins} Coin</span>
+        <span style={{color:'#ffe083'}}>{replay?localized(lang,{en:'Practice · No additional reward',he:'אימון · ללא פרס נוסף',ar:'تدريب · بدون مكافأة إضافية'}):`+${cityLevels[status.level-1].rewardCoins} Coin`}</span>
       </div>}
       <button className="btn3d yellow tap-play" onClick={e => { e.stopPropagation(); input.current.start = true; begin(); }}>{t.tap}</button>
       <button className="btn3d blue title-menu" onClick={e => { e.stopPropagation(); onMenu(); }}>{t.city}</button>
@@ -1182,7 +1206,7 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored, c
       {(status.sync === "sync-error" || status.sync === "offline" || status.sync === "storage-error") && <div className="play-tutorial" role="alert">{translateValue(lang, lang === "he" ? "שמירת ההתקדמות נכשלה. צא לתפריט ופתח מחדש כדי לנסות לסנכרן" : translateValue(lang, lang === "ar" ? "فشل حفظ التقدم. افتح اللعبة مجددًا لمحاولة المزامنة" : "Progress save failed. Reopen the game to retry sync"))}</div>}
       {status.tutorial && <div className="play-tutorial">{t.start}</div>}
       {status.celebrating && <div className="victory"><div className="rays"/><strong>{extended.done}</strong><span>{localized(lang, cityMissions(city)[status.level - 1].names)}</span></div>}
-      {!challenge && status.levelDone && !status.celebrating && <div className="level-complete"><strong>{ui.reward}{cityMissions(city)[status.level - 1].rewardCoins} {ui.coins}</strong><button className="btn3d yellow" onClick={() => { input.current.next = true; }}>{status.level < 6 ? `${extended.next} · ${ui.level} ${status.level + 1}` : city>=CAMPAIGN_CITY_COUNT?localized(lang,{en:'Adventure complete · Back to city map',he:'ההרפתקה הושלמה · חזרה למפה',ar:'المغامرة اكتملت · ارجع للخريطة'}):`${cityName(city+1,lang)} →`}</button></div>}{challenge && status.runDone && <div className="level-complete"><strong>+40 Coin</strong><button className="btn3d yellow" onClick={onMenu}>{t.menu}</button></div>}
+      {!challenge && !exploring.current && status.levelDone && !status.celebrating && <div className="level-complete"><strong>{replay?localized(lang,{en:'Practice complete · No reward',he:'האימון הושלם · ללא פרס נוסף',ar:'اكتمل التدريب · بدون مكافأة إضافية'}):`${ui.reward}${cityMissions(city)[status.level - 1].rewardCoins} ${ui.coins}`} </strong><button className="btn3d yellow" onClick={() => { input.current.next = true; }}>{replay?t.menu:status.level < 6 ? `${extended.next} · ${ui.level} ${status.level + 1}` : city>=CAMPAIGN_CITY_COUNT?localized(lang,{en:'Adventure complete · Back to city map',he:'ההרפתקה הושלמה · חזרה למפה',ar:'المغامرة اكتملت · ارجع للخريطة'}):`${cityName(city+1,lang)} →`}</button></div>}{challenge && status.runDone && <div className="level-complete"><strong>+40 Coin</strong><button className="btn3d yellow" onClick={onMenu}>{t.menu}</button></div>}
       <div className={`play-controls ${gestureMode ? "gesture-controls" : ""}`}>
         <div className="play-stick" onPointerDown={e => { e.currentTarget.setPointerCapture(e.pointerId); stick(e); }} onPointerMove={e => { if (e.currentTarget.hasPointerCapture(e.pointerId))
             stick(e); }} onPointerUp={release} onPointerCancel={release}><span ref={knob}/></div>

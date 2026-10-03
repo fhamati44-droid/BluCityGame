@@ -151,3 +151,7 @@ export function applyCommand(p: LevelProgress, c: GameCommand, now = Date.now())
 export function cityScale(level: number) { return 1 + Math.min(8, Math.max(0, level - 1)) * .15; }
 export function cityName(level:number,lang:Lang){return localized(lang,{en:['BLU Neighborhood','Energy Market','City Center'],he:['שכונת BLU','שוק האנרגיה','מרכז העיר'],ar:['حارة BLU','سوق الطاقة','قلب المدينة']})[campaignCityIndex(level)];}
 export type { Lang } from './i18n';
+
+// Reserved storefront lots: outside the sidewalk (outer edge x=20.3), 18 m spacing.
+export function businessPlot(id:number){return {x:26,z:8-(id-1)*18,width:9,depth:4};}
+export function overlapsBusinessPlot(x:number,z:number,width:number,depth:number){return [1,2,3,4,5,6].some(id=>{const p=businessPlot(id);return Math.abs(x-p.x)<(width+p.width)/2+1 && Math.abs(z-(p.z-2.1))<(depth+p.depth)/2+1;});}

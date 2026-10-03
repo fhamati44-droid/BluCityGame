@@ -13,6 +13,7 @@ import { claimDailyReward, dailyState, exchangeCoins, upgradeDash, parseLevelPro
 type Tab = 'home' | 'missions' | 'upgrades' | 'friends' | 'profile';
 export type PlayRequest = {
     mode: 'story';
+    replay?: boolean;
     mission: LevelId;
 } | {
     mode: 'circuit';
@@ -146,7 +147,7 @@ export default function GameHub({ lang, name, username, live, player, busy, char
     const missionCard = (index: number) => {
         const level = cityLevels[index], completed = progress.completed.includes(level.id), locked = level.id > active;
         const got = progress.objectives[level.id].filter(Boolean).length;
-        return <GameCard className={`hub-mission-card ${locked ? 'locked' : ''}`} key={level.id}><div className="hub-card-top"><span className="hub-level">{t.missions} {level.id}</span><span className={`hub-state ${completed ? 'complete' : ''}`}><HubIcon name={completed ? 'check' : locked ? 'lock' : 'upgrades'} size={13}/>{completed ? t.complete : locked ? t.locked : t.ready}</span></div><h2>{missionNames[index]}</h2><p>{missionInstruction(progress.cityLevel,level.id,lang)}</p><ProgressBar value={got / level.required * 100} label={missionNames[index]}/><div className="hub-card-meta"><span>{got}/{level.required} {t.collected}</span><b dir="ltr">+{level.rewardCoins} Coin</b></div>{!completed && <HubButton onClick={() => onPlay({ mode: 'story', mission: level.id })} disabled={locked}>{locked ? `${t.level} ${level.id - 1} → ${t.level} ${level.id}` : t.play}</HubButton>}</GameCard>;
+        return <GameCard className={`hub-mission-card ${locked ? 'locked' : ''}`} key={level.id}><div className="hub-card-top"><span className="hub-level">{t.missions} {level.id}</span><span className={`hub-state ${completed ? 'complete' : ''}`}><HubIcon name={completed ? 'check' : locked ? 'lock' : 'upgrades'} size={13}/>{completed ? t.complete : locked ? t.locked : t.ready}</span></div><h2>{missionNames[index]}</h2><p>{missionInstruction(progress.cityLevel,level.id,lang)}</p><ProgressBar value={got / level.required * 100} label={missionNames[index]}/><div className="hub-card-meta"><span>{got}/{level.required} {t.collected}</span><b dir="ltr">+{level.rewardCoins} Coin</b></div>{<HubButton onClick={() => onPlay({ mode: 'story', mission: level.id, replay: completed })} disabled={locked}>{locked ? `${t.level} ${level.id - 1} → ${t.level} ${level.id}` : completed?localized(lang,{en:'Play again · Practice',he:'שחק שוב · אימון',ar:'العب مجددًا · تدريب'}):t.play}</HubButton>}</GameCard>;
     };
     return <div className="game-hub">
     <div className="hub-status"><i className={live ? 'live' : ''}/>{sync === 'cloud' ? labels.sync : sync === 'saving' ? labels.sync + '…' : sync === 'setup-required' ? labels.setup : (sync === 'sync-error' || sync === 'offline' || sync === 'storage-error') ? labels.failed : t.local}<button onClick={() => setModal('controls')} aria-label={t.help}><HubIcon name="info" size={17}/>{t.help}</button></div>

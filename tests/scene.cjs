@@ -82,3 +82,21 @@ for(const cityLevel of [1,2,3]){
  assert.equal(menus,1);assert.equal(progress.cityLevel,Math.min(3,cityLevel+1));
 }
 console.log('PASS: all 18 authored scene missions finish, city-specific counts/routes, rewards once and final campaign end');
+
+// Completed missions remain playable with zero writes to the real account.
+for(const cityLevel of [1,2,3])for(const mission of g.cityMissions(cityLevel)){
+ progress=g.parseLevelProgress(JSON.stringify({...g.parseLevelProgress(null),cityLevel,completed:[1,2,3,4,5,6],claimed:[1,2,3,4,5,6],coins:90,blu:8}));
+ const before=JSON.stringify(progress);effects=[];refs=[];let menus=0;
+ mod.exports.default({lang:'en',mission:mission.id,replay:true,onMenu(){menus++;},onReward(){throw Error('Practice must not request a reward');},serverRestored:false});effects[0]();
+ const current=ctx.sceneTest;current.input.start=true;tick(2);
+ assert.equal(hud.level,mission.id);assert.equal(hud.levelDone,false);
+ const at=coords=>{current.state.pos.fromArray(coords);current.state.vy=0;tick(3);};
+ const charge=()=>{current.input.charge=true;tick(65);current.input.charge=false;tick();};
+ for(const coords of mission.points){at(coords);if(mission.id===3)at(mission.terminal);if(mission.id===6)charge();}
+ at(mission.terminal);if(mission.id===5)tick(110);charge();
+ assert.equal(hud.levelDone,true,`Replay city ${cityLevel} mission ${mission.id}`);
+ assert.equal(hud.coins,90);assert.equal(JSON.stringify(progress),before,'Practice must preserve all saved state');
+ current.input.next=true;tick(2);assert.equal(menus,1);assert.equal(JSON.stringify(progress),before);
+}
+for(let id=1;id<=6;id++){const p=g.businessPlot(id);assert.ok(p.x-p.width/2>20.3,'Storefront must be beyond sidewalk');for(let j=id+1;j<=6;j++)assert.ok(Math.abs(p.z-g.businessPlot(j).z)>p.depth+2,'Plots require gaps');}
+console.log('PASS: 18 practice replays finish without account writes or reward duplication; reserved plots clear sidewalk and one another');
