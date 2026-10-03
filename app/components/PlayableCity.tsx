@@ -105,7 +105,7 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored, c
             return;
         }
         const scene = new THREE.Scene();
-        const FOG = 0x142b50;
+        const FOG = 0xb9a69a;
         scene.fog = new THREE.Fog(FOG, 40, 150);
         const camera = new THREE.PerspectiveCamera(62, 1, .1, 400);
         renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 1.75));
@@ -152,7 +152,7 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored, c
         const skyGeo = new THREE.SphereGeometry(300, 32, 16);
         const cols: number[] = [];
         const pos = skyGeo.attributes.position;
-        const top = new THREE.Color(0x030e29), mid = new THREE.Color(progress.cityLevel===2?0x252449:0x143265), low = new THREE.Color(0x405c83), tmp = new THREE.Color();
+        const top = new THREE.Color(0x527da8), mid = new THREE.Color(progress.cityLevel===2?0xb68eaa:0x92aec5), low = new THREE.Color(0xffc894), tmp = new THREE.Color();
         for (let i = 0; i < pos.count; i++) {
             const y = pos.getY(i) / 300;
             if (y > .25)
@@ -166,16 +166,16 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored, c
         disposables.push(skyGeo, skyMat);
         const sky = new THREE.Mesh(skyGeo, skyMat);
         scene.add(sky);
-        const sunMat = new THREE.MeshBasicMaterial({ color: 0xd9ebff, fog: false });
+        const sunMat = new THREE.MeshBasicMaterial({ color: 0xffd28a, fog: false });
         disposables.push(sunMat);
         const sun = new THREE.Mesh(new THREE.CircleGeometry(7, 32), sunMat);
-        sun.position.set(-30, 26, -250);
+        sun.position.set(-55, 19, -250);
         scene.add(sun);
-        const cloudMat = new THREE.MeshBasicMaterial({ color: 0x718aa9, fog: false, transparent: true, opacity: .3 });
+        const cloudMat = new THREE.MeshBasicMaterial({ color: 0xffead2, fog: false, transparent: true, opacity: .42 });
         disposables.push(cloudMat);
         const clouds = [0, 1, 2, 3, 4].map(i => { const g = new THREE.Group(); [[0, 0, 5], [5, -1, 4], [-5, -1.3, 3.6], [2, 2, 3.8]].forEach(([x, y, r]) => { const m = new THREE.Mesh(sphGeo, cloudMat); m.scale.set(r, r * .6, r * .8); m.position.set(x, y, 0); g.add(m); }); g.position.set(-80 + i * 42, 50 + (i % 2) * 14, -170 - (i % 3) * 20); scene.add(g); return g; });
-        scene.add(new THREE.HemisphereLight(0x8daeff, 0x302a26, .9));
-        const sunLight = new THREE.DirectionalLight(0xbbd3ff, 1.35);
+        scene.add(new THREE.HemisphereLight(0xc9e1f4, 0x9c8065, 1.55));
+        const sunLight = new THREE.DirectionalLight(0xffd5a0, 2.1);
         sunLight.position.set(-18, 30, 14);
         scene.add(sunLight);
         // Small deterministic textures: authored locally, uploaded once, no per-frame canvas work.
@@ -217,9 +217,25 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored, c
             for (let x = -36; x < 36; x += 3)
                 box(1.2, .08, .9, B(0xffffff), x, -.02, z + 2.2);
         }
+        // Separate pedestrian blocks leave both intersections open; inset bands frame the paving.
         for (const x of [-16, 16]) {
-            box(.5, .26, 110, T(0xfff3e0), x, .05, -30);
-            box(4, .1, 110, pavingMaterial, x + Math.sign(x) * 2.3, -.02, -30);
+            const side=Math.sign(x);
+            for(const [start,end] of [[-85,-40],[-32,-20],[-12,25]]){
+                const length=end-start,center=(start+end)/2;
+                box(4,.16,length,pavingMaterial,x+side*2.3,.01,center);
+                box(.3,.18,length,T(0xc7bba9),x+side*4.25,.04,center);
+                // Individual bevel-like curb caps and expansion seams make the sidewalk readable.
+                for(let z=start+.6;z<end;z+=1.2){
+                    const capLength=Math.min(1.16,end-z+.6);
+                    box(.5,.23,capLength,T(0xe5d7c2),x,.045,z);
+                }
+                for(let z=start+2;z<end-.5;z+=3)
+                    box(3.7,.012,.035,T(0x9d9487),x+side*2.3,.098,z);
+                for(const z of [start+.8,end-.8]){
+                    box(1.5,.018,.7,T(0xd3ac58),x+side*.9,.101,z);
+                    for(let rib=0;rib<6;rib++)box(.065,.018,.58,T(0xead08a),x+side*(.35+rib*.2),.117,z);
+                }
+            }
         }
         for (let z = 12; z > -75; z -= 5.5)
             box(.22, .03, 2.4, B(0xffd43b), 0, -.02, z);
@@ -319,13 +335,38 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored, c
                 const poolMaterial=new THREE.MeshBasicMaterial({map:glowTexture,transparent:true,opacity:.12,depthWrite:false,blending:THREE.AdditiveBlending});disposables.push(poolMaterial);
                 const pool=new THREE.Mesh(poolGeometry,poolMaterial);pool.rotation.x=-Math.PI/2;pool.position.set(side*13,.015,z);scene.add(pool);lightPools.push({mesh:pool,material:poolMaterial});
             }
-        for (const side of [1])
-            for (let z = 8; z > -70; z -= 12) {
-                cyl(.18, 1.4, T(0x8a5a3c), side * 19.3, .7, z);
-                ball(1.3, T(0x3fbf6a), side * 19.3, 2.3, z);
-                ball(.9, T(0x62d98a), side * 19.3 + .4, 3.1, z + .2);
+        // Instanced leaf clusters give each crown an irregular silhouette without one draw per leaf.
+        const leafGeometry=new THREE.IcosahedronGeometry(1,1);disposables.push(leafGeometry);
+        const treeSites=[...Array.from({length:7},(_,i)=>({x:19.3,z:8-i*12})),...HERITAGE_PLOTS.map(({z})=>({x:-19.3,z}))];
+        const leafMatrix=new THREE.Object3D();
+        const foliageColors=[0x567648,0x819451,0x9ba05c];
+        foliageColors.forEach((color,tone)=>{
+            const foliage=new THREE.InstancedMesh(leafGeometry,T(color),treeSites.length*12);
+            foliage.castShadow=true;foliage.receiveShadow=true;
+            let index=0;
+            treeSites.forEach(({x,z},treeIndex)=>{
+                const phase=treeIndex*.73, height=3.5+(treeIndex%3)*.16;
+                for(let cluster=0;cluster<12;cluster++){
+                    const angle=cluster*2.399+phase+tone*.5;
+                    const radius=.25+(cluster%4)*.21;
+                    leafMatrix.position.set(x+Math.cos(angle)*radius,height+Math.sin(cluster*1.7+tone)*.5,z+Math.sin(angle)*radius);
+                    leafMatrix.rotation.set(cluster*.23,angle,tone*.17);
+                    leafMatrix.scale.set(.4+cluster%3*.1,.37+(cluster%2)*.17,.43);
+                    leafMatrix.updateMatrix();foliage.setMatrixAt(index++,leafMatrix.matrix);
+                }
+            });
+            foliage.instanceMatrix.needsUpdate=true;scene.add(foliage);
+        });
+        treeSites.forEach(({x,z},i)=>{
+            const trunk=cyl(.16,2.7,T(0x69513d),x,1.35,z);trunk.castShadow=true;
+            for(const side of [-1,1]){
+                const branch=cyl(.075,1.25,T(0x69513d),x+side*.24,2.55,z+(i%2?.15:-.15));
+                branch.rotation.z=-side*.48;branch.castShadow=true;
             }
-        for(const {z} of HERITAGE_PLOTS){cyl(.18,1.4,T(0x8a5a3c),-19.3,.7,z);ball(1.05,T(0x467b50),-19.3,2.3,z);ball(.7,T(0x71995d),-19.1,3.1,z+.2);}
+            // Open soil and a metal grate replace the solid green blocks below each tree.
+            box(1.1,.035,1,T(0x564d3d),x,.08,z);
+            for(const offset of [-.48,.48])box(.06,.04,1.05,T(0x46504b),x+offset,.11,z);
+        });
         // Elevated rail + launch pad
         box(2.4, .5, 73, T(0x5b6bd6), -9.2, 5.2, -31);
         for (let z = 0; z > -66; z -= 9)
@@ -385,11 +426,34 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored, c
         const makeObjective = (x: number, z: number, geo: THREE.BufferGeometry, color: number, beam: THREE.Material) => { const g = new THREE.Group(); const gem = new THREE.Mesh(geo, T(color, color, .55)); gem.position.y = 1.9; g.add(gem); const ring = new THREE.Mesh(new THREE.TorusGeometry(1, .08, 6, 28), B(0xffffff)); ring.rotation.x = Math.PI / 2; ring.position.y = .15; g.add(ring); disposables.push(ring.geometry); const b = new THREE.Mesh(beamGeo, beam); b.position.y = 8; g.add(b); g.position.set(x, 0, z); scene.add(g); return g; };
         const cells = missions[0].points.map(([x, , z]) => makeObjective(x, z, crystalGeo, 0x49e6ff, beamMat));
         const metroStation = new THREE.Group();
-        box(7.4, .35, 4.4, T(0xfff3e0), 0, .2, 0, metroStation);
-        for (const x of [-3.2, 3.2])
-            cyl(.22, 4, T(0x5b6bd6), x, 2.1, 0, metroStation);
-        box(8, .4, 4.8, T(0xff5d73), 0, 4.2, 0, metroStation);
-        const stationSign = box(6.4, .9, .3, T(0x6b6590), 0, 3.5, 2.3, metroStation);
+        const stationStone=surfaceLibrary.create('stone',0xe4d7be,.8);disposables.push(stationStone);
+        const stationMetal=T(0x344b56),stationWood=T(0xa88055);
+        // Open pavilion: a clear central approach, four columns, glazing and a layered canopy.
+        box(8,.16,5,stationStone,0,.06,0,metroStation);
+        for(const x of [-3.45,3.45])for(const z of [-1.8,1.8]){
+            box(.5,.4,.5,stationStone,x,.28,z,metroStation);
+            const column=cyl(.12,3.7,stationMetal,x,2.1,z,metroStation);column.castShadow=true;
+        }
+        box(8.4,.18,5.4,stationMetal,0,4.05,0,metroStation);
+        box(8.6,.12,5.6,T(0x8b9c9a),0,4.2,0,metroStation);
+        for(const x of [-3,-1.5,0,1.5,3])box(.075,.16,5.3,stationMetal,x,3.95,0,metroStation);
+        const stationGlass=new THREE.MeshPhysicalMaterial({color:0xa4d6de,transparent:true,opacity:.22,roughness:.16,metalness:.08,depthWrite:false});disposables.push(stationGlass);
+        for(const x of [-3.45,3.45])box(.045,2.65,3.1,stationGlass,x,1.9,-.05,metroStation);
+        box(6.8,2.65,.045,stationGlass,0,1.9,-1.85,metroStation);
+        box(2.4,.15,.65,stationWood,2.05,.7,-.9,metroStation);
+        box(2.4,.5,.08,stationWood,2.05,1,-1.2,metroStation);
+        for(const x of [1.2,2.9])box(.1,.7,.5,stationMetal,x,.35,-.9,metroStation);
+        box(1.05,1.6,.13,stationMetal,-2.6,1.65,-1.6,metroStation);
+        box(.85,1.35,.04,T(0xf5ead4),-2.6,1.65,-1.51,metroStation);
+        for(let row=0;row<6;row++)box(.65,.025,.025,T(row%2?0x4f8082:0xa39379),-2.6,2.1-row*.17,-1.48,metroStation);
+        const stationSign = box(6.4,.55,.18,T(0x466678),0,3.55,2.4,metroStation);
+        // Universal metro pictogram remains readable in every game language.
+        box(.9,.7,.08,T(0x167e96),-2.5,3.55,2.52,metroStation);
+        for(const side of [-1,1]){
+            box(.08,.4,.045,T(0xf7f0dd),-2.5+side*.24,3.55,2.58,metroStation);
+            const diagonal=box(.07,.28,.045,T(0xf7f0dd),-2.5+side*.1,3.6,2.58,metroStation);diagonal.rotation.z=side*.65;
+        }
+        for(let i=0;i<7;i++)box(.075,.02,1.2,T(0xd3b765),-.6+i*.2,.155,1.7,metroStation);
         metroStation.position.set(-9, 0, -50);
         scene.add(metroStation);
         const metroCores = missions[1].points.map(([x, , z]) => { const g = makeObjective(x, z, coreGeo, 0xff5fc8, beamPink); g.visible = false; return g; });
@@ -546,7 +610,7 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored, c
         for(const side of [1])for(let i=0;i<7;i++){
             const x=side*19.3,z=8-i*12;
             detail(2.8,.65,1.4,0x9a8979,x,.325,z);
-            detail(2.4,.5,1,progress.cityLevel===3?0x4d9d8b:0x5da569,x,.85,z);
+            detail(2.4,.035,1,0x635447,x,.67,z);
 
             if(i%2===0){
                 detail(2.4,.2,.7,0xad8256,x,.75,z-3);

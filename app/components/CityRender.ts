@@ -19,9 +19,9 @@ export class CityRender {
     light.castShadow=true;light.shadow.mapSize.set(1024,1024);light.shadow.camera.left=-20;light.shadow.camera.right=20;light.shadow.camera.top=20;light.shadow.camera.bottom=-20;light.shadow.camera.near=1;light.shadow.camera.far=75;light.shadow.bias=-.0004;light.shadow.normalBias=.06;light.shadow.camera.updateProjectionMatrix();
     scene.add(light.target);
     // A baked-style studio environment gives metal and wet stone actual PBR reflections.
-    const probe=new THREE.Scene();probe.background=new THREE.Color(0x172c4b);
+    const probe=new THREE.Scene();probe.background=new THREE.Color(0x607b93);
     const cards:THREE.Mesh[]=[];
-    for(const [x,y,z,w,h,color,intensity] of [[-8,4,-6,3,8,0xffc580,3],[8,4,-6,3,8,0xffc580,3],[0,10,0,20,8,0x779dcc,1.2]] as number[][]){
+    for(const [x,y,z,w,h,color,intensity] of [[-8,4,-6,3,8,0xffc580,3],[8,4,-6,3,8,0xffc580,3],[0,10,0,20,8,0xc5d9e9,1.2]] as number[][]){
       const mat=new THREE.MeshBasicMaterial({color});mat.color.multiplyScalar(intensity);
       const card=new THREE.Mesh(new THREE.PlaneGeometry(w,h),mat);card.position.set(x,y,z);card.lookAt(0,2,0);probe.add(card);cards.push(card);
     }
