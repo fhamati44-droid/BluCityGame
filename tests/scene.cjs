@@ -108,7 +108,7 @@ for(const city of [1,2,3]){
   assert.equal(bounds.length,4);
   for(const b of bounds){assert.ok(b.max.x<-20.3,'Heritage building body must clear the sidewalk');for(const z of [-16,-36])assert.ok(b.max.z<z-4||b.min.z>z+4,'Heritage plots must clear crossing streets');}
   for(let i=0;i<bounds.length;i++)for(let j=i+1;j<bounds.length;j++)assert.equal(bounds[i].intersectsBox(bounds[j]),false,'Heritage plots must not overlap');
-  let batches=0;street.root.traverse(o=>{if(o.isInstancedMesh)batches++;});assert.equal(batches,10,'Facade, glazing and interior geometry must be batched');
+  let batches=0;street.root.traverse(o=>{if(o.isInstancedMesh)batches++;});assert.equal(batches,11,'Facade, glazing and interior geometry must be batched');
   assert.equal(street.signs.length,4);
   const reveals=[],glazing=[];street.root.traverse(o=>{if(o.name==='arched window reveal')reveals.push(o);if(o.name==='recessed glazing')glazing.push(o);});
   assert.equal(reveals.length,1);assert.equal(glazing.length,1);assert.ok(reveals[0].count>=16);assert.equal(reveals[0].count,glazing[0].count);
@@ -141,10 +141,11 @@ assert.equal(masonry.metalness,0,'Masonry is a dielectric');
 assert.equal(masonry.map.anisotropy,4);
 const shader={uniforms:{},vertexShader:THREE.ShaderLib.standard.vertexShader};
 masonry.onBeforeCompile(shader);
-assert.equal(shader.uniforms.bluTileMeters.value,1.25);
+assert.equal(shader.uniforms.bluTileMeters.value.x,2.1);assert.equal(shader.uniforms.bluTileMeters.value.y,1.05);
 assert.ok(shader.vertexShader.includes('vNormalMapUv = bluSurfaceUv'));
 assert.ok(shader.vertexShader.includes('instanceMatrix * bluWorld'));
 let released=0;requests.forEach(r=>r.texture.addEventListener('dispose',()=>released++));
+const wetStone=library.create('paving',0xffffff,.38,true);assert.equal(wetStone.isMeshPhysicalMaterial,true);assert.ok(wetStone.clearcoat>0);assert.equal(wetStone.metalness,0);
 library.dispose();assert.equal(released,9);
 const late=requests.find(r=>r.url.includes('asphalt-color'));late.success(late.texture);
 assert.equal(released,10,'Late-loaded textures must release after scene unmount');
@@ -153,3 +154,4 @@ for(const asset of JSON.parse(fs.readFileSync('public/materials/sources.json','u
  const bytes=fs.readFileSync(file.path);assert.equal(bytes.toString('ascii',0,4),'RIFF');assert.equal(bytes.toString('ascii',8,12),'WEBP');assert.equal(crypto.createHash('sha256').update(bytes).digest('hex'),file.sha256);
 }
 console.log('PASS: scanned PBR map sharing, color spaces, world UVs, late-load cleanup and asset integrity');
+

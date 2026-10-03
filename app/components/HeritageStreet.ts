@@ -9,10 +9,11 @@ export function heritageStreet(city:number,stoneMap:THREE.Texture,stoneMaterial?
   const stone=stoneMaterial ?? new THREE.MeshStandardMaterial({color:0xc6b395,map:stoneMap,roughness:.82});
   const trim=new THREE.MeshStandardMaterial({color:0xe4d3b6,roughness:.65});
   const iron=new THREE.MeshStandardMaterial({color:0x26333e,metalness:.65,roughness:.4});
+  const fabric=new THREE.MeshStandardMaterial({color:0x9c2933,roughness:.96});
   const slate=new THREE.MeshStandardMaterial({color:0x233044,metalness:.15,roughness:.65});
   const glass=new THREE.MeshStandardMaterial({color:0xc0dbdf,metalness:0,roughness:.16,transparent:true,opacity:.23,depthWrite:false,side:THREE.DoubleSide});
   const wood=new THREE.MeshStandardMaterial({color:0x886344,roughness:.78});
-  const interior=new THREE.MeshStandardMaterial({color:0xf2d4a0,roughness:.85,emissive:0xffba67,emissiveIntensity:.38});resources.push(stone,trim,iron,slate,glass,wood,interior);
+  const interior=new THREE.MeshStandardMaterial({color:0xf2d4a0,roughness:.85,emissive:0xffba67,emissiveIntensity:.38});resources.push(stone,trim,iron,slate,glass,wood,interior,fabric);
   const parts:{parent:THREE.Group;mat:THREE.Material;x:number;y:number;z:number;w:number;h:number;d:number}[]=[];
   const box=(g:THREE.Group,mat:THREE.Material,w:number,h:number,d:number,x:number,y:number,z:number)=>parts.push({parent:g,mat,w,h,d,x,y,z});
   const arch=new THREE.Shape();arch.moveTo(-.7,0);arch.lineTo(.7,0);arch.lineTo(.7,1.5);arch.absarc(0,1.5,.7,0,Math.PI,false);arch.lineTo(-.7,0);
@@ -66,7 +67,7 @@ export function heritageStreet(city:number,stoneMap:THREE.Texture,stoneMaterial?
     const sign=new THREE.Mesh(signGeo,signMaterial);sign.position.set(0,3.25,5.4);sign.scale.x=1/g.scale.x;g.add(sign);
     signs.push({material:signMaterial,url:'/sponsors/'+['neon-cafe.svg','spark-bakery.svg','blu-grocery.svg','blu-services.svg'][i]});
     // Striped café awnings and a quiet roofline, outside the walking corridor.
-    for(let k=0;k<12;k++)box(g,k%2?trim:slate,1.25,.15,1.5,-7.1+k*1.3,3.2,4.6);
+    for(let k=0;k<12;k++)box(g,fabric,1.25,.15,1.5,-7.1+k*1.3,3.2,4.6);
     const roof=new THREE.Mesh(new THREE.CylinderGeometry(4.5,5.5,2,4),slate);roof.rotation.y=Math.PI/4;roof.scale.x=1.7;roof.position.y=h+1.4;roof.castShadow=true;g.add(roof);resources.push(roof.geometry);
     for(const x of [-5,5]){box(g,stone,.8,2,.8,x,h+2.4,-1);box(g,trim,1,.2,1,x,h+3.4,-1);}
   }
@@ -75,7 +76,7 @@ export function heritageStreet(city:number,stoneMap:THREE.Texture,stoneMaterial?
   const shaped:THREE.Mesh[]=[];root.traverse(o=>{if(o instanceof THREE.Mesh&&(o.name==='arched window reveal'||o.name==='recessed glazing'||o.name==='window wall bay'))shaped.push(o);});
   for(const name of ['arched window reveal','recessed glazing','window wall bay']){const selected=shaped.filter(o=>o.name===name);const batch=new THREE.InstancedMesh(selected[0].geometry,selected[0].material,selected.length);batch.name=name;batch.castShadow=name!=='recessed glazing';batch.receiveShadow=true;selected.forEach((o,i)=>{batch.setMatrixAt(i,o.matrixWorld);o.removeFromParent();});root.add(batch);resources.push(batch);}
   const dummy=new THREE.Object3D();
-  for(const mat of [trim,iron,slate,glass,stone,wood,interior]){const selected=parts.filter(p=>p.mat===mat);if(!selected.length)continue;const mesh=new THREE.InstancedMesh(cube,mat,selected.length);mesh.castShadow=mat!==glass;mesh.receiveShadow=true;resources.push(mesh);
+  for(const mat of [trim,iron,slate,glass,stone,wood,interior,fabric]){const selected=parts.filter(p=>p.mat===mat);if(!selected.length)continue;const mesh=new THREE.InstancedMesh(cube,mat,selected.length);mesh.castShadow=mat!==glass;mesh.receiveShadow=true;resources.push(mesh);
     selected.forEach((p,i)=>{dummy.position.set(p.x,p.y,p.z);dummy.scale.set(p.w,p.h,p.d);dummy.rotation.set(0,0,0);dummy.updateMatrix();mesh.setMatrixAt(i,new THREE.Matrix4().multiplyMatrices(p.parent.matrixWorld,dummy.matrix));});root.add(mesh);
   }
   return {root,blockers,signs,dispose(){resources.forEach(r=>r.dispose());}};

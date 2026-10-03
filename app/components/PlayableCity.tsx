@@ -8,7 +8,7 @@ import { CityRender } from './CityRender';
 import { heritageStreet, HERITAGE_PLOTS } from './HeritageStreet';
 import { businessPlot, overlapsBusinessPlot, applyCommand, type GameCommand, type LevelProgress, unlockedLevel, cityScale, cityName, cityMissions, missionInstruction, campaignCityIndex, CAMPAIGN_THEMES, CAMPAIGN_CITY_COUNT } from '../../lib/levels';
 import { SPONSOR_SLOTS, localSponsorLogo } from '../../lib/sponsors';
-import { BluRig, toon } from './BluRig';
+import { BluRig } from './BluRig';
 import { completeLevel, exchangeCoins, upgradeDash, COINS_PER_BLU, DASH_COST_BLU, LEVELS, parseLevelProgress, SAVE_KEY, type LevelId } from '../../lib/levels';
 type Props = {
     lang: Lang;
@@ -136,7 +136,7 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored, c
         const terminalDistance=(id:number)=>state.pos.distanceTo(terminalVectors[id]);
         const mats = new Map<string, THREE.Material>();
         const T = (color: number, glow = 0, gi = 0) => { const k = `${color}-${glow}-${gi}`; let mm = mats.get(k); if (!mm) {
-            mm = toon(color, glow, gi);
+            mm = new THREE.MeshStandardMaterial({color,emissive:glow,emissiveIntensity:gi,roughness:.75,metalness:0});
             mats.set(k, mm);
         } return mm; };
         const B = (color: number) => { const k = `b${color}`; let mm = mats.get(k); if (!mm) {
@@ -174,8 +174,8 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored, c
         const cloudMat = new THREE.MeshBasicMaterial({ color: 0x718aa9, fog: false, transparent: true, opacity: .3 });
         disposables.push(cloudMat);
         const clouds = [0, 1, 2, 3, 4].map(i => { const g = new THREE.Group(); [[0, 0, 5], [5, -1, 4], [-5, -1.3, 3.6], [2, 2, 3.8]].forEach(([x, y, r]) => { const m = new THREE.Mesh(sphGeo, cloudMat); m.scale.set(r, r * .6, r * .8); m.position.set(x, y, 0); g.add(m); }); g.position.set(-80 + i * 42, 50 + (i % 2) * 14, -170 - (i % 3) * 20); scene.add(g); return g; });
-        scene.add(new THREE.HemisphereLight(0x9fc6ff, 0x252b43, 1.25));
-        const sunLight = new THREE.DirectionalLight(0xb8d9ff, 2);
+        scene.add(new THREE.HemisphereLight(0x8daeff, 0x302a26, .9));
+        const sunLight = new THREE.DirectionalLight(0xbbd3ff, 1.35);
         sunLight.position.set(-18, 30, 14);
         scene.add(sunLight);
         // Small deterministic textures: authored locally, uploaded once, no per-frame canvas work.
@@ -206,9 +206,9 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored, c
         const stoneMaterials=new Map<number,THREE.MeshStandardMaterial>();
         const buildingStone=(color:number)=>{let material=stoneMaterials.get(color);if(!material){material=surfaceLibrary.create('stone',color);stoneMaterials.set(color,material);disposables.push(material);}return material;};
         // One shared glossy asphalt material; avoid expensive reflection passes.
-        const roadMaterial = surfaceLibrary.create('asphalt',0xb8c1cc,.48);
+        const roadMaterial = surfaceLibrary.create('paving',0x66758b,.38,true);
         disposables.push(roadMaterial);
-        const pavingMaterial=surfaceLibrary.create('paving',0xffffff,.85);disposables.push(pavingMaterial);
+        const pavingMaterial=surfaceLibrary.create('paving',0xe6d6b7,.6,true);disposables.push(pavingMaterial);
         // Streets
         box(120, .4, 170, T(theme.ground), 0, -.3, -36);
         box(31, .06, 110, roadMaterial, 0, -.07, -30);
@@ -226,7 +226,7 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored, c
         for (const x of [-7.7, 7.7])
             for (let z = 12; z > -75; z -= 5.5)
                 box(.12, .03, 2.4, B(0xffffff), x, -.02, z);
-        // Buildings: saturated toon blocks with ink rooftops; window grid is one instanced mesh
+        // Stone street walls and a shared instanced window grid
         const winCount = 900;
         const winGeo = new THREE.PlaneGeometry(.9, 1);
         const winMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
@@ -292,7 +292,7 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored, c
         for (const side of [-1, 1])
             for (let i = 0; i < 8; i++) {
                 const h = 22 + (i * 11) % 18;
-                box(9, h, 9, T(PALETTE[(i + 2) % PALETTE.length]), side * 36, h / 2, 8 - i * 12);
+                box(9, h, 9, buildingStone([0xded0b8,0xadb9c4,0xcbb99b][i%3]), side * 36, h / 2, 8 - i * 12);
                 box(9.6, .8, 9.6, T(0x2b2f5e), side * 36, h + .4, 8 - i * 12);
             }
         windowsMesh.count = wi;
@@ -459,7 +459,8 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored, c
         line(4, -40, 6);
         line(-13, -38, 4);
         line(0, -46, 4, .9, -1.8, 2.5);
-        const boltMesh = new THREE.InstancedMesh(boltGeo, T(0xffc629, 0xffa600, .45), boltSpots.length);
+        const coinMaterial=new THREE.MeshStandardMaterial({color:0xffce59,metalness:.85,roughness:.24,emissive:0xffaa22,emissiveIntensity:.18});disposables.push(coinMaterial);
+        const boltMesh = new THREE.InstancedMesh(boltGeo, coinMaterial, boltSpots.length);
         scene.add(boltMesh);
         const boltTaken = boltSpots.map(() => false);
         // Particle bursts

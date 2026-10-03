@@ -32,31 +32,31 @@
   },
   {
     "surface": "stone",
-    "asset": "Bricks052",
-    "source": "https://ambientcg.com/a/Bricks052",
-    "download": "https://ambientcg.com/get?file=Bricks052_1K-JPG.zip",
+    "asset": "Bricks093",
+    "source": "https://ambientcg.com/a/Bricks093",
+    "download": "https://ambientcg.com/get?file=Bricks093_1K-JPG.zip",
     "creationMethod": "PBRPhotogrammetry",
     "license": "CC0-1.0",
     "files": [
       {
         "path": "public/materials/stone-color.webp",
-        "sizeBytes": 32088,
-        "sourceSha256": "f582cfe4017a7b95595c0562fb8bd5f28812d3f129379ac0077839331a7b340d",
-        "sha256": "e3e24fcce2cc9c6e25773b86ae8cf1edd4305fce4a854ad74e7b740637d1e649",
+        "sizeBytes": 15606,
+        "sourceSha256": "9bf89ce6c7a7892e3589fad192ca4f88138b3b3ee1419129667c3a5dcc9add66",
+        "sha256": "ce9e9ad126703a91867e900500d289eb89ab05f5eec464af47d51722059537a3",
         "resolution": 512
       },
       {
         "path": "public/materials/stone-normal.webp",
-        "sizeBytes": 68830,
-        "sourceSha256": "82bf53fa9d7b8902c88249b3802a6d9ae90bad20bca9fbb9df80771459544d40",
-        "sha256": "698ef0b850e49cc619d31330e251fa3ff29e049e57d3a8fd7723f94ea468d4f0",
+        "sizeBytes": 37398,
+        "sourceSha256": "a20a6de87058aa996765bffd1a0ccdee9ac2dc85055cebf37128ff84a7856d5d",
+        "sha256": "316212cfb24647c8e5c471fb9080155495c20e26039d7006d643b947bbaa31f3",
         "resolution": 512
       },
       {
         "path": "public/materials/stone-roughness.webp",
-        "sizeBytes": 24174,
-        "sourceSha256": "e9fa8b793aa4a088dcbd55985de2820ff2210865f4c01af928edb00827e7b696",
-        "sha256": "7c3ba6b3ca0d1ef4e266a1431186598e639feb08cad0d0981c65aa42518f9a86",
+        "sizeBytes": 50020,
+        "sourceSha256": "1b03c0ec9992da9920eecacfe6945ad94fc5f28ba38042bdc959a2daea372190",
+        "sha256": "19dc67d2557dc00a3ff67944d3d660d237ef04fab11cb69f84cf591e6aa9e644",
         "resolution": 512
       }
     ]

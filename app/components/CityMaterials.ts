@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 
 type Surface = 'asphalt' | 'stone' | 'paving';
-const tiles: Record<Surface, number> = { asphalt: 4, stone: 1.25, paving: 2 };
+const tiles: Record<Surface, [number,number]> = { asphalt: [4,4], stone: [2.1,1.05], paving: [2,2] };
 
 /** Photo-scanned CC0 surfaces. One texture set per surface, shared by all instances. */
 export function cityMaterials(renderer: THREE.WebGLRenderer, fallback: Record<Surface, THREE.Texture>) {
@@ -33,13 +33,13 @@ export function cityMaterials(renderer: THREE.WebGLRenderer, fallback: Record<Su
     material.needsUpdate = true;
   }
   return {
-    create(kind: Surface, color = 0xffffff, roughness = kind === 'asphalt' ? .48 : .9) {
-      const material = new THREE.MeshStandardMaterial({ color, map: fallback[kind], roughness, metalness: 0 });
+    create(kind: Surface, color = 0xffffff, roughness = kind === 'asphalt' ? .48 : .9, wet = false) {
+      const material = wet ? new THREE.MeshPhysicalMaterial({color,map:fallback[kind],roughness,metalness:0,clearcoat:.65,clearcoatRoughness:.18}) : new THREE.MeshStandardMaterial({ color, map: fallback[kind], roughness, metalness: 0 });
       material.normalScale.setScalar(kind === 'asphalt' ? .45 : .65);
       // World-meter UVs stop the shared unit cube from stretching stone across large facades.
       material.onBeforeCompile = shader => {
-        shader.uniforms.bluTileMeters = { value: tiles[kind] };
-        shader.vertexShader = 'uniform float bluTileMeters;\n' + shader.vertexShader;
+        shader.uniforms.bluTileMeters = { value: new THREE.Vector2(...tiles[kind]) };
+        shader.vertexShader = 'uniform vec2 bluTileMeters;\n' + shader.vertexShader;
         shader.vertexShader = shader.vertexShader.replace('#include <project_vertex>', `
           #include <project_vertex>
           vec4 bluWorld = vec4(transformed, 1.0);
