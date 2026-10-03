@@ -192,6 +192,10 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored, c
             return; dummy.position.set(x, y, z); dummy.rotation.set(0, ry, 0); dummy.scale.set(1, 1, 1); dummy.updateMatrix(); windowsMesh.setMatrixAt(wi, dummy.matrix); windowsMesh.setColorAt(wi, unlitColor); wi++; };
         const cameraBlockers: THREE.Mesh[] = [];
         const signs: THREE.Mesh[] = [];
+        // Architectural detail uses one shared instanced draw rather than hundreds of meshes.
+        const architecture: {x:number;y:number;z:number;w:number;h:number;d:number;color:number}[]=[];
+        const detail=(w:number,h:number,d:number,color:number,x:number,y:number,z:number)=>architecture.push({x,y,z,w,h,d,color});
+
         for (const side of [-1, 1])
             for (let i = 0; i < 13; i++) {
                 const x = side * (24 + (i % 3) * .8), z = 12 - i * 6.9, h = (progress.cityLevel === 2 ? 5 : progress.cityLevel === 3 ? 14 : 8) + ((i * 7 + (side + 1) * 5) % 6) * (progress.cityLevel === 2 ? 1.5 : 3), color = progress.cityLevel === 1 ? PALETTE[(i + (side > 0 ? 3 : 0)) % PALETTE.length] : [theme.building,theme.roof,theme.accent][i%3];
@@ -203,6 +207,31 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored, c
                     cyl(.35, 1.4, T(0x9aa3c7), x - 1.6, h + 1.3, z + 1);
                 }
                 const face = x - side * 3.11;
+                const stone=progress.cityLevel===1?0xf0d8b1:progress.cityLevel===2?0xebd1a0:0xbccbd6;
+                // Recessed ground floor, corner piers, cornices and balconies create a readable street wall.
+                detail(.45,3.5,5.8,stone,face-side*.12,1.75,z);
+                for(const dz of [-2.65,2.65])detail(.7,h,.38,stone,face-side*.25,h/2,z+dz);
+                detail(.8,.35,6.1,stone,face-side*.3,3.6,z);
+                detail(.7,.32,6.4,stone,face-side*.2,h-.8,z);
+                detail(.15,2.1,2.8,0x183548,face-side*.52,1.8,z);
+                detail(1.5,.25,5.2,i%2?theme.accent:0xd7b890,face-side*.75,3.2,z);
+                for(const dz of [-2.3,2.3])detail(.22,2.8,.22,stone,face-side*.8,1.4,z+dz);
+                if(progress.cityLevel===1){
+                    for(let y=5;y<h-2;y+=5.2){
+                        detail(1.3,.2,3.8,stone,face-side*.65,y,z);
+                        detail(.14,.65,3.8,0x344557,face-side*1.25,y+.4,z);
+                        for(const dz of [-1.8,1.8])detail(1.2,.65,.12,0x344557,face-side*.65,y+.4,z+dz);
+                    }
+                    detail(5.2,1.2,4.8,theme.roof,x,h+1.4,z);
+                }else if(progress.cityLevel===2){
+                    for(let stripe=0;stripe<6;stripe++)detail(2,.12,.8,stripe%2?0xffefd1:theme.accent,face-side*.9,3.35,z-2+stripe*.8);
+                    detail(.6,1.3,1.6,0xd19a55,face-side*.9,.65,z+1.4);
+                }else{
+                    for(let dz=-2;dz<=2;dz+=2)detail(.16,h-4,.18,0x7babbf,face-side*.4,(h+4)/2,z+dz);
+                    detail(4.4,3,4.2,theme.roof,x,h+2,z);
+                    detail(.4,3,.4,theme.accent,x,h+5,z);
+                }
+
                 for (let y = 2.2; y < h - 1; y += 2.6)
                     for (let dz = -1.7; dz <= 1.7; dz += 1.7)
                         addWindow(face, y, z + dz, -side * Math.PI / 2);
@@ -436,6 +465,52 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored, c
             // Lit frontage gives visible feedback at every completed business.
             box(6,.22,.5,T(slot?.color??theme.accent),sign.position.x,sign.position.y-1,sign.position.z);
         }
+        // Shop entrance framing and display shelves; collision remains on the existing frontage.
+        for(const m of missions){
+            const t=terminals[m.id], accent=SPONSOR_SLOTS.find(s=>s.city===progress.cityLevel&&s.mission===m.id)?.color??theme.accent;
+            for(const side of [-1,1]){
+                detail(.38,5.2,.45,0xd4c4aa,t.x+side*4.5,t.y+2.6,t.z-3.7);
+                detail(2.9,.12,.28,accent,t.x+side*2.6,t.y+1.2,t.z-3.7);
+                detail(2.9,.12,.28,accent,t.x+side*2.6,t.y+2.1,t.z-3.7);
+                for(let j=0;j<3;j++)detail(.45,.45,.25,j%2?accent:0xe5dcc5,t.x+side*2.6+(j-1)*.75,t.y+1.5,t.z-3.65);
+            }
+            detail(1.4,2.6,.2,0x142b39,t.x,t.y+1.3,t.z-3.65);
+            detail(.15,.55,.15,0xffdb87,t.x+.45,t.y+1.4,t.z-3.5);
+            detail(9.5,.35,1.5,accent,t.x,t.y+3,t.z-3.4);
+            detail(9.6,.3,4.5,0xd4c4aa,t.x,t.y+5.25,t.z-6.1);
+        }
+        // Sidewalk furnishings stay outside the playable road and mission checkpoints.
+        for(const side of [-1,1])for(let i=0;i<7;i++){
+            const x=side*19.3,z=8-i*12;
+            detail(2.8,.65,1.4,0x9a8979,x,.325,z);
+            detail(2.4,.5,1,progress.cityLevel===3?0x4d9d8b:0x5da569,x,.85,z);
+            detail(.35,2,.35,0x8b7057,x,1.6,z);
+            detail(2.3,1.6,2.1,progress.cityLevel===2?0x448e76:0x69ae88,x,3.1,z);
+            if(i%2===0){
+                detail(2.4,.2,.7,0xad8256,x,.75,z-3);
+                detail(2.4,.75,.15,0xad8256,x,1.2,z-3.35);
+                for(const dx of [-.85,.85])detail(.18,.7,.6,0x263544,x+dx,.35,z-3);
+            }
+        }
+        if(progress.cityLevel===2){
+            // Overhead market festoon: a recognizable silhouette without blocking navigation.
+            for(let i=0;i<9;i++)detail(.7,.65,.08,i%2?0xffd27a:0xff6f9e,-12+i*3,6.5,-20);
+            detail(25,.07,.07,0x344557,0,7,-20);
+        }
+        if(progress.cityLevel===3){
+            // Civic tower clock and stepped plaza facade give the finale a landmark.
+            detail(12,.3,7,0xc2cbd4,12,.2,-74);
+            for(const x of [6,10,14,18])detail(.9,7,.8,0xe8e4d6,x,3.8,-69.5);
+            detail(4,7,4,0xadc4cf,12,11.5,-74);
+            detail(4.8,.5,4.8,0x264862,12,15.2,-74);
+            detail(2.4,2.4,.1,0xffe9aa,12,12.5,-71.9);
+            detail(.14,.9,.13,0x20344a,12,12.8,-71.8);
+            detail(.75,.14,.13,0x20344a,12.35,12.4,-71.8);
+        }
+        const detailMaterial=new THREE.MeshLambertMaterial({color:0xffffff});disposables.push(detailMaterial);
+        const detailMesh=new THREE.InstancedMesh(boxGeo,detailMaterial,architecture.length);
+        architecture.forEach((a,i)=>{dummy.position.set(a.x,a.y,a.z);dummy.rotation.set(0,0,0);dummy.scale.set(a.w,a.h,a.d);dummy.updateMatrix();detailMesh.setMatrixAt(i,dummy.matrix);detailMesh.setColorAt(i,new THREE.Color(a.color));});
+        scene.add(detailMesh);
         const cityBanner=document.createElement('canvas');cityBanner.width=1024;cityBanner.height=192;
         const bannerContext=cityBanner.getContext('2d');
         if(bannerContext){bannerContext.fillStyle='#102440';bannerContext.fillRect(0,0,1024,192);bannerContext.fillStyle='#'+theme.accent.toString(16).padStart(6,'0');bannerContext.fillRect(0,176,1024,16);bannerContext.fillStyle='#fff';bannerContext.textAlign='center';bannerContext.font='bold 58px sans-serif';bannerContext.fillText(cityName(progress.cityLevel,'en').toUpperCase(),512,115,960);}
@@ -989,7 +1064,7 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored, c
         };
         publish();
         animate();
-        return () => { alive=false; cancelAnimationFrame(frame); resize.disconnect(); window.removeEventListener('keydown', down); window.removeEventListener('keyup', up); mats.forEach(m => m.dispose()); disposables.forEach(d => d.dispose()); windowsMesh.dispose(); boltMesh.dispose(); renderer.dispose(); renderer.domElement.remove(); };
+        return () => { alive=false; cancelAnimationFrame(frame); resize.disconnect(); window.removeEventListener('keydown', down); window.removeEventListener('keyup', up); mats.forEach(m => m.dispose()); disposables.forEach(d => d.dispose()); windowsMesh.dispose(); detailMesh.dispose(); boltMesh.dispose(); renderer.dispose(); renderer.domElement.remove(); };
     }, [serverRestored, challenge, mission]);
     // Touch: swipe up = jump, down = slide, sideways = dash (anywhere on the stage)
     useEffect(() => { try { setGestureMode(localStorage.getItem('blu_gestures') === '1'); } catch {} }, []);
@@ -1059,7 +1134,7 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored, c
           <div ref={boltChip} className="hud-bolts" aria-label={ui.coins}><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M13 2 4 13h7l-1 9 10-12h-7l1-8Z" fill="#ffd43b" stroke="#0b2a5b" strokeWidth="2" strokeLinejoin="round"/></svg>{status.coins}</div>
         </div>
       </div>
-      <button type="button" className={`hud-mission ${missionExpanded || status.levelDone ? 'expanded' : ''}`} aria-expanded={missionExpanded || status.levelDone} aria-label={objective} onClick={()=>setMissionExpanded(v=>!v)}>
+      <button type="button" className={`hud-mission ${missionExpanded && !status.levelDone ? 'expanded' : ''}`} aria-expanded={missionExpanded && !status.levelDone} aria-label={objective} onClick={()=>setMissionExpanded(v=>!v)}>
         <span className="mission-arrow" style={{ transform: `rotate(${status.direction}rad)` }} aria-hidden="true">▲</span>
         <div><strong>{challenge ? (translateValue(lang, lang === 'he' ? 'מסלול האנרגיה' : translateValue(lang, lang === 'ar' ? 'مسار الطاقة' : 'Energy circuit'))) : localized(lang, cityMissions(city)[status.level - 1].names)}</strong><span className="mission-objective">{challenge ? objective : missionInstruction(city,status.level as LevelId,lang)}</span><small>{challenge ? `${status.bolts}/20 · ${status.runTime}s` : `${got}/${total} · ${status.meters} m`}</small></div>
         {!status.levelDone && !challenge && <div className="pips">{Array.from({ length: total }, (_, i) => <i key={i} className={i < got ? (status.level === 2 ? 'on pink' : 'on') : ''}/>)}</div>}
