@@ -2,14 +2,14 @@
 const fs=require('node:fs'),vm=require('node:vm'),ts=require('typescript'),assert=require('node:assert/strict'),THREE=require('three');
 function load(file,req,globals={}){const out=ts.transpileModule(fs.readFileSync(file,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2020,jsx:ts.JsxEmit.ReactJSX}}).outputText;const mod={exports:{}};vm.runInNewContext(out,{exports:mod.exports,module:mod,require:req,...globals});return mod.exports;}
 const g=load('lib/levels.ts',n=>n.includes('i18n')?require('./i18n-helper.cjs'):require(n),{Date,Math,Array,Set,JSON,Number});let progress=g.parseLevelProgress(null),hud,effects=[],refs=[],clock=0,frame;
-const element=()=>({style:{},classList:{remove(){},add(){}},append(){},remove(){},addEventListener(){},offsetWidth:1,clientWidth:390,clientHeight:844});
+const element=()=>({getContext:()=>null,style:{},classList:{remove(){},add(){}},append(){},remove(){},addEventListener(){},offsetWidth:1,clientWidth:390,clientHeight:844});
 const react={useRef(v){const ref={current:v===null?element():v};refs.push(ref);return ref;},useState(v){return[v,next=>{if(next&&typeof next==='object'&&'level'in next)hud=next;}];},useEffect(fn){effects.push(fn);}};
 class Renderer{constructor(){this.domElement=element();}setPixelRatio(){}setSize(){}render(){}dispose(){}}
 class Rig{constructor(){this.root=new THREE.Group();}update(){}setEnergy(){}setEquipment(){}jump(){}land(){}dispose(){}}
 let rejectFinish=false;
 const store={useWalletTesting:()=>false,setMissionPosition(){},getProgress:()=>progress,getSyncStatus:()=> 'device',dispatchProgress:c=>(progress=rejectFinish&&c.type==='finish'?progress:g.applyCommand(progress,c,clock)),checkpointProgress:s=>{for(const l of g.LEVELS){const flags=l.id===1?s.cells:l.id===2?s.metro:s.objectives[l.id];flags.forEach((v,i)=>{if(v)progress=g.applyCommand(progress,{type:'collect',id:l.id,index:i},clock);});if(l.id===1?s.restored:l.id===2?s.metroDone:s.completed.includes(l.id))progress=g.applyCommand(progress,{type:'finish',id:l.id},clock);}return progress;}};
 let source=fs.readFileSync('app/components/PlayableCity.tsx','utf8');source=source.replace('const key = new Set<string>();','globalThis.sceneTest={state,input:input.current,camera,worldScale,blu,cameraBlockers};const key = new Set<string>();');
-const out=ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2020,jsx:ts.JsxEmit.ReactJSX}}).outputText;const mod={exports:{}};const ctx={exports:mod.exports,module:mod,require:n=>n.includes("i18n")?require("./i18n-helper.cjs"):n==='react'?react:n==='three'?new Proxy(THREE,{get:(o,k)=>k==='WebGLRenderer'?Renderer:o[k]}):n==='./BluRig'?{BluRig:Rig,toon:c=>new THREE.MeshToonMaterial({color:c})}:n.includes('progress-store')?store:n.includes('levels')?g:require(n),document:{hidden:false,createElement:element},window:{addEventListener(){},removeEventListener(){}},navigator:{vibrate(){}},localStorage:{getItem(){return null;}},performance:{now:()=>clock},devicePixelRatio:1,ResizeObserver:class{constructor(fn){this.fn=fn;}observe(){this.fn();}disconnect(){}},requestAnimationFrame:fn=>(frame=fn,1),cancelAnimationFrame(){},Date,Math,Array,Set,JSON,Number};vm.createContext(ctx);vm.runInContext(out,ctx);mod.exports.default({lang:'en',onMenu(){},onReward(){},serverRestored:false});effects[0]();const scene=ctx.sceneTest;
+const out=ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2020,jsx:ts.JsxEmit.ReactJSX}}).outputText;const mod={exports:{}};const ctx={exports:mod.exports,module:mod,require:n=>n.includes("i18n")?require("./i18n-helper.cjs"):n==='react'?react:n==='three'?new Proxy(THREE,{get:(o,k)=>k==='WebGLRenderer'?Renderer:k==='TextureLoader'?class{load(){}}:o[k]}):n==='./BluRig'?{BluRig:Rig,toon:c=>new THREE.MeshToonMaterial({color:c})}:n.includes('progress-store')?store:n.includes('levels')?g:n.includes('sponsors')?load('lib/sponsors.ts',require):require(n),document:{hidden:false,createElement:element},window:{addEventListener(){},removeEventListener(){}},navigator:{vibrate(){}},localStorage:{getItem(){return null;}},performance:{now:()=>clock},devicePixelRatio:1,ResizeObserver:class{constructor(fn){this.fn=fn;}observe(){this.fn();}disconnect(){}},requestAnimationFrame:fn=>(frame=fn,1),cancelAnimationFrame(){},Date,Math,Array,Set,JSON,Number};vm.createContext(ctx);vm.runInContext(out,ctx);mod.exports.default({lang:'en',onMenu(){},onReward(){},serverRestored:false});effects[0]();const scene=ctx.sceneTest;
 const tick=(n=1)=>{for(let i=0;i<n;i++){clock+=40;frame();}};scene.input.start=true;tick();
 // Keep the character inside the unobstructed center of portrait screens.
 for(const [x,z,y] of [[-35,-20,0],[35,-20,0],[0,-50,7]]){
@@ -64,3 +64,21 @@ down(100,200);stage.onTouchMove({touches:[{clientX:165,clientY:135}]});assert.eq
 down(100,200);up(100,140);assert.equal(controls.jump,true);down(100,200);up(100,260);assert.equal(controls.slide,true);
 clock+=400;down(100,200);up(100,200);clock+=100;down(100,200);up(100,200);assert.equal(controls.dash,true);
 console.log('PASS: actual gesture handlers support free travel, jump, slide, double-tap dash and cancel reset');
+// Complete every authored city using the actual scene loop, not just state commands.
+vm.runInContext('(function(){'+out+'\n})();',ctx);
+for(const cityLevel of [1,2,3]){
+ progress={...g.parseLevelProgress(null),cityLevel};effects=[];refs=[];
+ let menus=0;mod.exports.default({lang:'en',onMenu(){menus++;},onReward(){},serverRestored:false});effects[0]();
+ const current=ctx.sceneTest;current.input.start=true;tick(2);
+ const at=coords=>{current.state.pos.fromArray(coords);current.state.vy=0;tick(3);};
+ const charge=()=>{current.input.charge=true;tick(65);current.input.charge=false;tick();};
+ for(const mission of g.cityMissions(cityLevel)){
+  for(const coords of mission.points){at(coords);if(mission.id===3)at(mission.terminal);if(mission.id===6)charge();}
+  at(mission.terminal);if(mission.id===5)tick(110);charge();
+  assert.ok(progress.completed.includes(mission.id),`City ${cityLevel} mission ${mission.id} must finish`);
+  assert.equal(progress.coins,[100,250,430,650,910,1230][mission.id-1]);
+  current.input.next=true;tick(2);
+ }
+ assert.equal(menus,1);assert.equal(progress.cityLevel,Math.min(3,cityLevel+1));
+}
+console.log('PASS: all 18 authored scene missions finish, city-specific counts/routes, rewards once and final campaign end');

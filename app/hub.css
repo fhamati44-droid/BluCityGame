@@ -167,3 +167,5 @@
 .ton-confirm input { margin-top: 4px; flex-shrink: 0; }
 .ton-wallet-panel a { color: #b8d1ff; text-decoration: underline; }
 .ton-wallet-panel ul { padding-inline-start: 20px; }
+
+.campaign-map{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:20px 0}.campaign-city{display:flex;align-items:center;flex-direction:column;gap:6px;text-align:center;border:1px solid #89aace44;border-radius:15px;background:#102038;padding:12px 5px;font-size:11px;color:#b4c7df}.campaign-city strong{min-height:30px}.campaign-city.current{border-color:#4cdbff;color:#eaffff;background:#143348}.campaign-city span{font-variant-numeric:tabular-nums}

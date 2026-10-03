@@ -1,11 +1,8 @@
-import {unlockedLevel,cityScale,type GameCommand,type LevelProgress,type MissionPosition} from './levels';
+import {unlockedLevel,cityScale,cityMissions,type GameCommand,type LevelProgress,type MissionPosition} from './levels';
 const points=(items:number[][]):MissionPosition[]=>items.map(([x,y,z])=>({x,y,z}));
-export const MISSION_POINTS:Record<number,MissionPosition[]>={
- 1:points([[-11,0,-8],[12,0,-23],[-4,0,-43]]),2:points([[-13,0,-44],[11,0,-49]]),
- 3:points([[17,0,-16],[17,0,-25],[17,0,-42]]),4:points([[8,3,-18],[8,4,-26],[8,4,-35]]),
- 5:points([[14,0,-47],[29,0,-50]]),6:points([[-8,0,-73],[12,0,-79],[27,0,-89]])
-};
-export const MISSION_TERMINALS:Record<number,MissionPosition>={1:{x:0,y:0,z:-35},2:{x:-9,y:0,z:-50},3:{x:17,y:0,z:-31},4:{x:4,y:3,z:-41},5:{x:24,y:0,z:-52},6:{x:12,y:0,z:-63}};
+// Compatibility aliases for the neighborhood; live validation uses the current city's definition.
+export const MISSION_POINTS:Record<number,MissionPosition[]> = Object.fromEntries(cityMissions(1).map(m=>[m.id,points(m.points)]));
+export const MISSION_TERMINALS:Record<number,MissionPosition> = Object.fromEntries(cityMissions(1).map(m=>[m.id,points([m.terminal])[0]]));
 type Session={city:number;id:number;started:number;at:number;position:MissionPosition;carrying?:number;escortAt?:number;charge?:{index:number;at:number}};
 const distance=(a:MissionPosition,b:MissionPosition)=>Math.hypot(a.x-b.x,a.y-b.y,a.z-b.z);
 const invalid=()=>({code:'MISSION_INVALID',retryAfterMs:0,session:undefined});
@@ -32,13 +29,14 @@ export function guardMission(raw:unknown,p:LevelProgress,c:GameCommand,now=Date.
  const wait=Math.ceil(Math.max(0,travel-2)/24*1000-(now-s.at));
  if(wait>0)return {code:'MISSION_WAIT',retryAfterMs:Math.min(wait,60000),session:s};
  const next:Session={...s,position,at:now};
- const index=c.index??-1,target=MISSION_POINTS[id][index],terminal=MISSION_TERMINALS[id];
+ const mission=cityMissions(p.cityLevel)[id-1];
+ const index=c.index??-1,coords=mission.points[index],target=coords?{x:coords[0],y:coords[1],z:coords[2]}:undefined,terminal={x:mission.terminal[0],y:mission.terminal[1],z:mission.terminal[2]};
  const terminalDistance=id<=2?Math.hypot(position.x-terminal.x,position.z-terminal.z):distance(position,terminal);
  if(c.type==='mission-pickup'){
   if(id!==3||!target||p.objectives[id][index]||s.carrying!==undefined||distance(position,target)>2)return invalid();
   next.carrying=index;next.charge=undefined;
  }else if(c.type==='mission-escort'){
-  if(id!==5||!p.objectives[id].every(Boolean)||distance(position,MISSION_POINTS[5][1])>4)return invalid();
+  if(id!==5||!p.objectives[id].every(Boolean)||distance(position,(()=>{const point=cityMissions(p.cityLevel)[4].points.at(-1)!;return {x:point[0],y:point[1],z:point[2]};})())>4)return invalid();
   next.escortAt=now;
  }else if(c.type==='mission-charge'){
   const node=id===6&&index>=0;

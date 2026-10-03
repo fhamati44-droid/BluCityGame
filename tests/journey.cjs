@@ -57,19 +57,21 @@ function load(file,mocks={}){
  let activeSession=0;
  const rawCommand=async(c,expected=200)=>{serverClock+=3000;const result=await progress.POST(request(101,{action:'command',revision:saved.revision,commandId:randomUUID(),command:{...c,cityLevel:saved.progress.cityLevel}}));assert.equal(result.status,expected,JSON.stringify(result.data));if(result.status===200)saved=result.data;return saved.progress;};
  const command=async(c)=>{
+ const pointObject=a=>({x:a[0],y:a[1],z:a[2]}),missions=g.cityMissions(saved.progress.cityLevel);
+ const terminals=Object.fromEntries(missions.map(m=>[m.id,pointObject(m.terminal)])),points=Object.fromEntries(missions.map(m=>[m.id,m.points.map(pointObject)]));
   if(['collect','finish'].includes(c.type)){
-   if(saved.progress.completed.includes(c.id))return rawCommand({...c,position:missionGuard.MISSION_TERMINALS[c.id]},400);
+   if(saved.progress.completed.includes(c.id))return rawCommand({...c,position:terminals[c.id]},400);
    if(activeSession!==c.id){await rawCommand({type:'mission-start',id:c.id,position:{x:0,y:0,z:10}});activeSession=c.id;}
    if(c.type==='collect'){
-    const point=missionGuard.MISSION_POINTS[c.id][c.index];
+    const point=points[c.id][c.index];
     if(c.id===3)await rawCommand({type:'mission-pickup',id:3,index:c.index,position:point});
     if(c.id===6)await rawCommand({type:'mission-charge',id:6,index:c.index,position:point});
-    return rawCommand({...c,position:c.id===3?missionGuard.MISSION_TERMINALS[3]:point});
+    return rawCommand({...c,position:c.id===3?terminals[3]:point});
    }
-   if(!saved.progress.objectives[c.id].every(Boolean))return rawCommand({...c,position:missionGuard.MISSION_TERMINALS[c.id]},400);
-   if(c.id===5)await rawCommand({type:'mission-escort',id:5,position:missionGuard.MISSION_POINTS[5][1]});
-   await rawCommand({type:'mission-charge',id:c.id,position:missionGuard.MISSION_TERMINALS[c.id]});
-   return rawCommand({...c,position:missionGuard.MISSION_TERMINALS[c.id]});
+   if(!saved.progress.objectives[c.id].every(Boolean))return rawCommand({...c,position:terminals[c.id]},400);
+   if(c.id===5)await rawCommand({type:'mission-escort',id:5,position:points[5].at(-1)});
+   await rawCommand({type:'mission-charge',id:c.id,position:terminals[c.id]});
+   return rawCommand({...c,position:terminals[c.id]});
   }
   if(c.type==='next-city')activeSession=0;
   return rawCommand(c);
@@ -119,8 +121,8 @@ function load(file,mocks={}){
  const send=async(command,id=randomUUID())=>progress.POST(request(101,{action:'command',revision:saved.revision,commandId:id,command}));
  let r=await send({type:'daily'});assert.equal(r.status,200);saved=r.data;
  for(const index of [1,2])await command({type:'collect',id:1,index});
- await command({type:'mission-charge',id:1,position:missionGuard.MISSION_TERMINALS[1]});
- const finishId=randomUUID(),finishCommand={type:'finish',id:1,cityLevel:2,position:missionGuard.MISSION_TERMINALS[1]};
+ await command({type:'mission-charge',id:1,position:{x:g.cityMissions(2)[0].terminal[0],y:0,z:g.cityMissions(2)[0].terminal[2]}});
+ const finishId=randomUUID(),finishCommand={type:'finish',id:1,cityLevel:2,position:{x:g.cityMissions(2)[0].terminal[0],y:0,z:g.cityMissions(2)[0].terminal[2]}};
  const rewardBlocked=await send(finishCommand,finishId);assert.equal(rewardBlocked.status,429);assert.equal(rewardBlocked.data.code,'MISSION_WAIT');assert.equal((await open()).progress.completed.length,0,'Blocked reward does not mark a mission complete');
  const coinsBefore=saved.progress.coins;serverClock+=rewardBlocked.data.retryAfterMs;r=await send(finishCommand,finishId);assert.equal(r.status,200);assert.equal(r.data.progress.coins,coinsBefore+100);assert.equal(r.data.progress.completed.length,1);
  console.log('PASS: real API + SQL journey: new account, six missions, persisted checkpoints, equipment, dash, conversion, withdrawal retry, revision conflict, city 2, account isolation and confirmed status');

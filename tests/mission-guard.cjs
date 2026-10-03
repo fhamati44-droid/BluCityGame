@@ -29,3 +29,26 @@ for(const mission of g.LEVELS){
 assert.equal(p.coins,1230);
 const oldSession=session;p=g.applyCommand(p,{type:'next-city'});session=oldSession;invalid({type:'collect',id:1,index:0,position:guard.MISSION_POINTS[1][0]});
 console.log('PASS: six server mission sessions, movement timing, delivery pickup, roof height, escort prerequisite, node/terminal charging, no repeated rewards and old-city rejection');
+for(const cityLevel of [1,2,3]){
+ p={...g.parseLevelProgress(null),cityLevel};session=undefined;
+ const point=a=>({x:a[0],y:a[1],z:a[2]});
+ for(const mission of g.cityMissions(cityLevel)){
+  assert.ok(!send({type:'mission-start',id:mission.id,position:{x:0,y:0,z:10}},10000).code);
+  for(let index=0;index<mission.required;index++){
+   const position=point(mission.points[index]);
+   if(mission.id===3)assert.ok(!send({type:'mission-pickup',id:3,index,position},10000).code);
+   if(mission.id===6)assert.ok(!send({type:'mission-charge',id:6,index,position},10000).code);
+   assert.equal(validation.validGameCommand({type:'collect',id:mission.id,index,position}),true);
+   assert.ok(!send({type:'collect',id:mission.id,index,position:mission.id===3?point(mission.terminal):position},10000).code);
+  }
+  if(mission.id===5)assert.ok(!send({type:'mission-escort',id:5,position:point(mission.points.at(-1))},10000).code);
+  assert.ok(!send({type:'mission-charge',id:mission.id,position:point(mission.terminal)},10000).code);
+  assert.ok(!send({type:'finish',id:mission.id,position:point(mission.terminal)},10000).code);
+  const coins=p.coins;invalid({type:'finish',id:mission.id,position:point(mission.terminal)});assert.equal(p.coins,coins);
+ }
+ assert.equal(p.coins,1230);
+ if(cityLevel===3)assert.equal(g.applyCommand(p,{type:'next-city'}),p,'Completed campaign cannot mint endless city rewards');
+}
+const legacy=g.parseLevelProgress(JSON.stringify({...p,cityLevel:9,coins:9000,blu:12,inventory:['shoes'],skin:'classic'}));
+assert.equal(legacy.cityLevel,3);assert.equal(legacy.coins,9000);assert.equal(legacy.blu,12);assert.ok(legacy.inventory.includes('shoes'));assert.equal(legacy.completed.length,6);
+console.log('PASS: all 18 server-validated missions, varying requirements, exact-once rewards, final-city cap and legacy balance preservation');

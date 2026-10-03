@@ -1,4 +1,4 @@
-import {ITEMS,LEVELS,type GameCommand} from './levels';
+import {ITEMS,LEVELS,cityMissions,type GameCommand} from './levels';
 
 // Accept only the command schema understood by the server. Never accept balances.
 export function validGameCommand(value:unknown):value is GameCommand {
@@ -16,7 +16,7 @@ export function validGameCommand(value:unknown):value is GameCommand {
   case 'equip':return ['classic','neon','gold'].includes(String(c.id))&&typeof c.id==='string';
   case 'mission-start':case 'mission-pickup':case 'mission-charge':case 'mission-escort':case 'collect':case 'finish':{
    if(!Number.isSafeInteger(c.id)||Number(c.id)<1||Number(c.id)>6)return false;
-   return ['finish','mission-start','mission-escort'].includes(c.type)||c.type==='mission-charge'&&c.index===undefined||Number.isSafeInteger(c.index)&&Number(c.index)>=0&&Number(c.index)<LEVELS[Number(c.id)-1].required;
+   return ['finish','mission-start','mission-escort'].includes(c.type)||c.type==='mission-charge'&&c.index===undefined||Number.isSafeInteger(c.index)&&Number(c.index)>=0&&Number(c.index)<Math.max(...[1,2,3].map(city=>cityMissions(city)[Number(c.id)-1].required));
   }
   case 'run-finish':return Number.isSafeInteger(c.bolts)&&Number(c.bolts)>=20&&Number(c.bolts)<=200;
   default:return true;

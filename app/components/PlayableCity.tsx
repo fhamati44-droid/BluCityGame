@@ -3,7 +3,8 @@ import { localized, translateValue, isRtl, type Lang } from '../../lib/i18n';
 import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { getProgress, checkpointProgress, dispatchProgress, getSyncStatus, useWalletTesting, setMissionPosition } from '../../lib/progress-store';
-import { unlockedLevel, cityScale, cityName } from '../../lib/levels';
+import { unlockedLevel, cityScale, cityName, cityMissions, missionInstruction, campaignCityIndex, CAMPAIGN_THEMES, CAMPAIGN_CITY_COUNT } from '../../lib/levels';
+import { SPONSOR_SLOTS, localSponsorLogo } from '../../lib/sponsors';
 import { BluRig, toon } from './BluRig';
 import { completeLevel, exchangeCoins, upgradeDash, COINS_PER_BLU, DASH_COST_BLU, LEVELS, parseLevelProgress, SAVE_KEY, type LevelId } from '../../lib/levels';
 type Props = {
@@ -110,6 +111,10 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored, c
         const disposables: {
             dispose: () => void;
         }[] = [];
+        let progress = getProgress();
+        const missions = cityMissions(progress.cityLevel), theme = CAMPAIGN_THEMES[campaignCityIndex(progress.cityLevel)];
+        const terminalVectors=Object.fromEntries(missions.map(m=>[m.id,new THREE.Vector3(...m.terminal as [number,number,number])]));
+        const terminalDistance=(id:number)=>state.pos.distanceTo(terminalVectors[id]);
         const mats = new Map<string, THREE.Material>();
         const T = (color: number, glow = 0, gi = 0) => { const k = `${color}-${glow}-${gi}`; let mm = mats.get(k); if (!mm) {
             mm = toon(color, glow, gi);
@@ -158,7 +163,7 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored, c
         const roadMaterial = new THREE.MeshStandardMaterial({color:0x222f49,roughness:.28,metalness:.25});
         disposables.push(roadMaterial);
         // Streets
-        box(120, .4, 170, T(0x7bd88f), 0, -.3, -36);
+        box(120, .4, 170, T(theme.ground), 0, -.3, -36);
         box(31, .06, 110, roadMaterial, 0, -.07, -30);
         for (const z of [-16, -36]) {
             box(80, .07, 8, roadMaterial, 0, -.04, z);
@@ -189,7 +194,7 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored, c
         const signs: THREE.Mesh[] = [];
         for (const side of [-1, 1])
             for (let i = 0; i < 13; i++) {
-                const x = side * (24 + (i % 3) * .8), z = 12 - i * 6.9, h = 8 + ((i * 7 + (side + 1) * 5) % 6) * 3, color = PALETTE[(i + (side > 0 ? 3 : 0)) % PALETTE.length];
+                const x = side * (24 + (i % 3) * .8), z = 12 - i * 6.9, h = (progress.cityLevel === 2 ? 5 : progress.cityLevel === 3 ? 14 : 8) + ((i * 7 + (side + 1) * 5) % 6) * (progress.cityLevel === 2 ? 1.5 : 3), color = progress.cityLevel === 1 ? PALETTE[(i + (side > 0 ? 3 : 0)) % PALETTE.length] : [theme.building,theme.roof,theme.accent][i%3];
                 cameraBlockers.push(box(6.2, h, 5.6, T(color), x, h / 2, z));
                 cameraBlockers.push(box(6.8, .6, 6.2, T(0x2b2f5e), x, h + .3, z));
                 box(5.4, .3, 4.8, T(0xfff3e0), x, h + .7, z);
@@ -289,7 +294,7 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored, c
         const coreGeo = new THREE.IcosahedronGeometry(.75);
         disposables.push(beamGeo, crystalGeo, coreGeo);
         const makeObjective = (x: number, z: number, geo: THREE.BufferGeometry, color: number, beam: THREE.Material) => { const g = new THREE.Group(); const gem = new THREE.Mesh(geo, T(color, color, .55)); gem.position.y = 1.9; g.add(gem); const ring = new THREE.Mesh(new THREE.TorusGeometry(1, .08, 6, 28), B(0xffffff)); ring.rotation.x = Math.PI / 2; ring.position.y = .15; g.add(ring); disposables.push(ring.geometry); const b = new THREE.Mesh(beamGeo, beam); b.position.y = 8; g.add(b); g.position.set(x, 0, z); scene.add(g); return g; };
-        const cells = [[-11, -8], [12, -23], [-4, -43]].map(([x, z]) => makeObjective(x, z, crystalGeo, 0x49e6ff, beamMat));
+        const cells = missions[0].points.map(([x, , z]) => makeObjective(x, z, crystalGeo, 0x49e6ff, beamMat));
         const metroStation = new THREE.Group();
         box(7.4, .35, 4.4, T(0xfff3e0), 0, .2, 0, metroStation);
         for (const x of [-3.2, 3.2])
@@ -298,7 +303,7 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored, c
         const stationSign = box(6.4, .9, .3, T(0x6b6590), 0, 3.5, 2.3, metroStation);
         metroStation.position.set(-9, 0, -50);
         scene.add(metroStation);
-        const metroCores = [[-13, -44], [11, -49]].map(([x, z]) => { const g = makeObjective(x, z, coreGeo, 0xff5fc8, beamPink); g.visible = false; return g; });
+        const metroCores = missions[1].points.map(([x, , z]) => { const g = makeObjective(x, z, coreGeo, 0xff5fc8, beamPink); g.visible = false; return g; });
         // Connected alley, accessible rooftop route and the power district.
         const surfaces = [{ x: 8, z: -18, w: 5, d: 5, y: 3 }, { x: 8, z: -26, w: 5, d: 6, y: 4 }, { x: 8, z: -35, w: 5, d: 6, y: 4 }, { x: 4, z: -41, w: 10, d: 5, y: 3 }];
         for (const roof of surfaces) {
@@ -317,14 +322,11 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored, c
         const districtLamp = box(18, .3, .7, T(0x344252), 12, 5.2, -66);
         const factory = box(10, 10, 8, T(0x446274), 12, 5, -86);
         cyl(1, 12, T(0x9aacbf), 19, 6, -87);
-        const powerNodes = [[-8, -73], [12, -79], [27, -89]];
-        const extra: Record<number, THREE.Group[]> = {
-            3: [[17, -16], [17, -25], [17, -42]].map(([x, z]) => makeObjective(x, z, crystalGeo, 0xffcf45, beamMat)),
-            4: [[8, -18], [8, -26], [8, -35]].map(([x, z], i) => { const o = makeObjective(x, z, coreGeo, 0xff5fc8, beamPink); o.position.y = surfaces[i].y; return o; }),
-            5: [[14, -47], [29, -50]].map(([x, z]) => makeObjective(x, z, coreGeo, 0x92ffaa, beamMat)),
-            6: powerNodes.map(([x, z]) => makeObjective(x, z, crystalGeo, 0x6ff7ff, beamMat))
-        };
-        const terminals: Record<number, THREE.Vector3> = { 3: new THREE.Vector3(17, 0, -31), 4: new THREE.Vector3(4, 3, -41), 5: new THREE.Vector3(24, 0, -52), 6: new THREE.Vector3(12, 0, -63) };
+        const extra: Record<number, THREE.Group[]> = Object.fromEntries(missions.slice(2).map(m=>[m.id,m.points.map(([x,y,z])=>{const o=makeObjective(x,z,m.id===3||m.id===6?crystalGeo:coreGeo,m.id===3?0xffcf45:m.id===4?0xff5fc8:0x6ff7ff,m.id===4?beamPink:beamMat);o.position.y=y;return o;})]));
+        const terminals:Record<number,THREE.Vector3> = terminalVectors;
+        gen.position.set(terminals[1].x,0,terminals[1].z+35);
+        genRing.position.copy(terminals[1]).setY(.2);
+        metroStation.position.copy(terminals[2]);
         const terminalRings: Record<number, THREE.Mesh> = {};
         for (const id of [3, 4, 5, 6]) {
             const ring = new THREE.Mesh(new THREE.TorusGeometry(2, .1, 8, 32), B(0x6ff7ff));
@@ -337,7 +339,7 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored, c
         const mechanic = new THREE.Group();
         box(.7, 1.1, .55, T(0xffcf45), 0, .65, 0, mechanic);
         ball(.3, T(0xe4f9ff), 0, 1.45, 0, mechanic);
-        mechanic.position.set(29, 0, -50);
+        mechanic.position.fromArray(missions[4].points.at(-1)!);
         scene.add(mechanic);
         const shopUnlit = shopLight.material, workshopUnlit = workshopLight.material;
         let carriedCell: number | null = null;
@@ -395,7 +397,32 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored, c
             const ramp = box(2.5, .18, Math.hypot(r.a - r.b, r.yb - r.ya), T(0xffcf45), r.x, (r.ya + r.yb) / 2, (r.a + r.b) / 2);
             ramp.rotation.x = Math.atan2(r.yb - r.ya, r.a - r.b);
         }
-        let progress = getProgress();
+        // Market stalls, civic facade and neighborhood shops define each district.
+        if(progress.cityLevel===2){for(let i=0;i<6;i++){const z=-8-i*8;box(4,2.7,4,T(theme.building),-14,1.35,z);box(5,.3,5,T(theme.accent),-14,3,z);}}
+        if(progress.cityLevel===3){box(15,8,8,T(0xc4cfe5),12,4,-74);for(const x of [6,10,14,18])cyl(.4,7,T(0xfff3de),x,3.5,-69.7);box(17,.8,9,T(theme.roof),12,8.4,-74);}
+        const civicTraffic:THREE.MeshBasicMaterial[]=[];
+        if(progress.cityLevel===3){
+            for(const x of [-5,5]){cyl(.12,3.6,T(0x28394c),x,1.8,-17);const light=new THREE.MeshBasicMaterial({color:0x27384a});disposables.push(light);civicTraffic.push(light);box(.6,1.3,.4,T(0x17263c),x,3,-17);ball(.19,light,x,3.3,-16.7);}
+            cyl(.7,15,T(0x7998b5),25,7.5,-64);for(const y of [9,12,15])box(5,.15,.4,T(theme.accent),25,y,-64);
+        }
+        const sponsorLights:{mission:number;material:THREE.MeshBasicMaterial}[]=[];
+        let alive=true;
+        for(const m of missions){
+            const slot=SPONSOR_SLOTS.find(s=>s.city===progress.cityLevel&&s.mission===m.id);
+            const canvas=document.createElement('canvas');canvas.width=512;canvas.height=160;
+            const context=canvas.getContext('2d');
+            if(context){context.fillStyle='#102440';context.fillRect(0,0,512,160);context.fillStyle='#ffffff';context.textAlign='center';context.font='bold 28px sans-serif';context.fillText(slot?.name||m.names.en,256,90,490);}
+            const texture=new THREE.CanvasTexture(canvas);disposables.push(texture);
+            const material=new THREE.MeshBasicMaterial({map:texture,color:0x46576b});disposables.push(material);sponsorLights.push({mission:m.id,material});
+            const sign=new THREE.Mesh(new THREE.PlaneGeometry(5,1.55),material);disposables.push(sign.geometry);
+            sign.position.copy(terminals[m.id]).add(new THREE.Vector3(0,3,-4));scene.add(sign);
+            const logo=localSponsorLogo(slot?.logo??null);
+            if(logo)new THREE.TextureLoader().load(logo,loaded=>{if(!alive){loaded.dispose();return;}loaded.colorSpace=THREE.SRGBColorSpace;material.map=loaded;material.needsUpdate=true;disposables.push(loaded);},undefined,()=>{});
+            const frontage=box(6,3.2,4,T(theme.building),sign.position.x,terminals[m.id].y+1.6,sign.position.z-2.1);
+            cameraBlockers.push(frontage);
+            // Lit frontage gives visible feedback at every completed business.
+            box(6,.22,.5,T(slot?.color??theme.accent),sign.position.x,sign.position.y-1,sign.position.z);
+        }
         const worldScale = cityScale(progress.cityLevel);
         const world = new THREE.Group();
         for (const child of [...scene.children])
@@ -474,9 +501,9 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored, c
         const cameraRay = new THREE.Raycaster(), cameraTarget = new THREE.Vector3(), cameraDirection = new THREE.Vector3();
         const publish = () => {
             const remaining = challenge ? [] : activeLevel === 1 ? cells.filter((_, i) => !found[i]) : activeLevel === 2 ? metroCores.filter((_, i) => !metroFound[i]) : (extra[activeLevel] || []).filter((_, i) => !progress.objectives[activeLevel][i]);
-            const target = challenge ? runFinish : activeLevel === 3 && carriedCell !== null ? terminals[3] : activeLevel === 5 && progress.objectives[5].every(Boolean) && !escort ? mechanic.position : remaining.length ? remaining.reduce((best, c) => c.position.distanceTo(state.pos) < best.position.distanceTo(state.pos) ? c : best).position : challenge ? runFinish : activeLevel === 1 ? new THREE.Vector3(0, 0, -35) : activeLevel === 2 ? new THREE.Vector3(-9, 0, -50) : terminals[activeLevel];
+            const target = challenge ? runFinish : activeLevel === 3 && carriedCell !== null ? terminals[3] : activeLevel === 5 && progress.objectives[5].every(Boolean) && !escort ? mechanic.position : remaining.length ? remaining.reduce((best, c) => c.position.distanceTo(state.pos) < best.position.distanceTo(state.pos) ? c : best).position : challenge ? runFinish : activeLevel === 1 ? terminals[1] : activeLevel === 2 ? terminals[2] : terminals[activeLevel];
             const dx = target.x - state.pos.x, dz = target.z - state.pos.z;
-            setStatus({ carrying: carriedCell !== null, escorting: escort, escortReady: escort && mechanic.position.distanceTo(terminals[5]) < 5, nodeReady: activeLevel === 6 && extra[6].some((o, i) => !progress.objectives[6][i] && state.pos.distanceTo(o.position) < 1.8), completed: [...progress.completed], sync: getSyncStatus(), extraGot: progress.objectives[activeLevel].filter(Boolean).length, levelDone: progress.completed.includes(activeLevel), runTime: Math.round(state.time), runDone, cells: found.filter(Boolean).length, metroCells: metroFound.filter(Boolean).length, energy: Math.round(state.energy), meters: Math.round(Math.hypot(dx, dz) * worldScale), direction: Math.atan2(dx, -dz), restored, metroDone, level: activeLevel, coins: progress.coins, blu: progress.blu, dashLevel: progress.dashLevel, celebrating: (challenge ? runDone : progress.completed.includes(activeLevel)) && ((extraCelebrate > 0 && state.time - extraCelebrate < 3.6) || (state.restoreTime > 0 && state.time - state.restoreTime < 3.6) || (state.metroTime > 0 && state.time - state.metroTime < 3.6)), nearby: challenge ? state.pos.distanceTo(runFinish) < 4 : activeLevel > 2 ? state.pos.distanceTo(terminals[activeLevel]) < 4 : activeLevel === 2 ? Math.hypot(state.pos.x + 9, state.pos.z + 50) < 4.2 : Math.hypot(state.pos.x, state.pos.z + 35) < 4.2, overcharge: state.over > 0, rail: state.onRail, secret: state.pos.x > 13 && state.pos.z < -23, charge: state.charge, dashing: state.dash > 0, score: Math.round(state.bolts * 10 + state.travelled), bolts: state.bolts, tutorial: startedRef.current && state.travelled < 6 });
+            setStatus({ carrying: carriedCell !== null, escorting: escort, escortReady: escort && mechanic.position.distanceTo(terminals[5]) < 5, nodeReady: activeLevel === 6 && extra[6].some((o, i) => !progress.objectives[6][i] && state.pos.distanceTo(o.position) < 1.8), completed: [...progress.completed], sync: getSyncStatus(), extraGot: progress.objectives[activeLevel].filter(Boolean).length, levelDone: progress.completed.includes(activeLevel), runTime: Math.round(state.time), runDone, cells: found.filter(Boolean).length, metroCells: metroFound.filter(Boolean).length, energy: Math.round(state.energy), meters: Math.round(Math.hypot(dx, dz) * worldScale), direction: Math.atan2(dx, -dz), restored, metroDone, level: activeLevel, coins: progress.coins, blu: progress.blu, dashLevel: progress.dashLevel, celebrating: (challenge ? runDone : progress.completed.includes(activeLevel)) && ((extraCelebrate > 0 && state.time - extraCelebrate < 3.6) || (state.restoreTime > 0 && state.time - state.restoreTime < 3.6) || (state.metroTime > 0 && state.time - state.metroTime < 3.6)), nearby: challenge ? state.pos.distanceTo(runFinish) < 4 : activeLevel > 2 ? state.pos.distanceTo(terminals[activeLevel]) < 4 : activeLevel === 2 ? terminalDistance(2) < 4.2 : terminalDistance(1) < 4.2, overcharge: state.over > 0, rail: state.onRail, secret: state.pos.x > 13 && state.pos.z < -23, charge: state.charge, dashing: state.dash > 0, score: Math.round(state.bolts * 10 + state.travelled), bolts: state.bolts, tutorial: startedRef.current && state.travelled < 6 });
         };
         const controlReset = () => {input.current.x=0;input.current.y=0;input.current.charge=false;};
         const animate = () => {
@@ -520,7 +547,7 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored, c
                 if (activeLevel < 6)
                     activeLevel = (activeLevel + 1) as LevelId;
                 else {
-                    progress = dispatchProgress({ type: 'next-city' });
+                    if(progress.cityLevel<CAMPAIGN_CITY_COUNT)progress = dispatchProgress({ type: 'next-city' });
                     onMenu();
                     return;
                 }
@@ -681,7 +708,7 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored, c
             const celebrating = (extraCelebrate > 0 && state.time - extraCelebrate < 3.6) || (state.restoreTime > 0 && state.time - state.restoreTime < 3.6) || (state.metroTime > 0 && state.time - state.metroTime < 3.6);
             const faceCam = !playing || celebrating || state.idle > 2.2;
             const activationNode = activeLevel === 6 ? extra[6].findIndex((o, i) => !progress.objectives[6][i] && state.pos.distanceTo(o.position) < 1.8) : -1;
-            const charging = playing && control.charge && (!challenge && activationNode >= 0 || (!challenge && activeLevel > 2 && !progress.completed.includes(activeLevel) && progress.objectives[activeLevel].every(Boolean) && state.pos.distanceTo(terminals[activeLevel]) < 4 && (activeLevel !== 5 || escort && mechanic.position.distanceTo(terminals[5]) < 5)) || (challenge && !runDone && state.bolts >= 20 && state.time >= 20 && state.pos.distanceTo(runFinish) < 4) || (!challenge && (activeLevel === 1 && found.every(Boolean) && !restored && Math.hypot(state.pos.x, state.pos.z + 35) < 4.2) || (!challenge && activeLevel === 2 && !metroDone && metroFound.every(Boolean) && Math.hypot(state.pos.x + 9, state.pos.z + 50) < 4.2)));
+            const charging = playing && control.charge && (!challenge && activationNode >= 0 || (!challenge && activeLevel > 2 && !progress.completed.includes(activeLevel) && progress.objectives[activeLevel].every(Boolean) && state.pos.distanceTo(terminals[activeLevel]) < 4 && (activeLevel !== 5 || escort && mechanic.position.distanceTo(terminals[5]) < 5)) || (challenge && !runDone && state.bolts >= 20 && state.time >= 20 && state.pos.distanceTo(runFinish) < 4) || (!challenge && (activeLevel === 1 && found.every(Boolean) && !restored && terminalDistance(1) < 4.2) || (!challenge && activeLevel === 2 && !metroDone && metroFound.every(Boolean) && terminalDistance(2) < 4.2)));
             blu.root.position.copy(state.pos);
             blu.update(dt, { speed: Math.min(1, state.speed / 9), grounded, vy: state.vy, sliding: state.slide > 0, dashing: state.dash > 0, charging, celebrating, overcharge: state.over > 0, waving: !playing || (state.idle > 4 && state.idle % 6 < 1.6), yaw: faceCam ? 0 : state.yaw });
             blu.setEnergy(state.energy);
@@ -717,7 +744,7 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored, c
                 boltMesh.setMatrixAt(i, dummy.matrix);
             }
             boltMesh.instanceMatrix.needsUpdate = true;
-            for (let i = 0; i < 3; i++) {
+            for (let i = 0; i < cells.length; i++) {
                 const gem = cells[i].children[0];
                 gem.rotation.y += dt * 1.8;
                 gem.position.y = 1.9 + Math.sin(state.time * 3 + i) * .2;
@@ -860,7 +887,9 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored, c
             }
             mechanic.visible = activeLevel === 5 || progress.completed.includes(5);
             if (progress.completed.includes(5))
-                mechanic.position.set(24, 0, -53);
+                mechanic.position.copy(terminals[5]).add(new THREE.Vector3(0,0,-1));
+            civicTraffic.forEach(m=>m.color.setHex(progress.completed.includes(1)?0x54ff8c:0x27384a));
+            sponsorLights.forEach(s=>s.material.color.setHex(progress.completed.includes(s.mission as LevelId)?0xffffff:0x46576b));
             shopLight.material = progress.completed.includes(3) ? litMats.station : shopUnlit;
             workshopLight.material = progress.completed.includes(5) ? litMats.sign : workshopUnlit;
             gate.visible = !progress.completed.includes(6);
@@ -934,7 +963,7 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored, c
         };
         publish();
         animate();
-        return () => { cancelAnimationFrame(frame); resize.disconnect(); window.removeEventListener('keydown', down); window.removeEventListener('keyup', up); mats.forEach(m => m.dispose()); disposables.forEach(d => d.dispose()); windowsMesh.dispose(); boltMesh.dispose(); renderer.dispose(); renderer.domElement.remove(); };
+        return () => { alive=false; cancelAnimationFrame(frame); resize.disconnect(); window.removeEventListener('keydown', down); window.removeEventListener('keyup', up); mats.forEach(m => m.dispose()); disposables.forEach(d => d.dispose()); windowsMesh.dispose(); boltMesh.dispose(); renderer.dispose(); renderer.domElement.remove(); };
     }, [serverRestored, challenge, mission]);
     // Touch: swipe up = jump, down = slide, sideways = dash (anywhere on the stage)
     useEffect(() => { try { setGestureMode(localStorage.getItem('blu_gestures') === '1'); } catch {} }, []);
@@ -970,8 +999,9 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored, c
     const hold = (on: boolean) => () => { input.current.charge = on; };
     const extended = localized(lang, { en: { collect: "Collect the marked energy", charge: "Hold Charge at the beacon", go: "Reach the marked destination", done: "Mission complete!", next: "Continue", run: "Collect 20 bolts, then charge the finish beacon", escort: "Lead the robot to the workshop" }, he: { collect: "אסוף את האנרגיה המסומנת", charge: "החזק טעינה בנקודת הסיום", go: "הגע ליעד המסומן", done: "המשימה הושלמה!", next: "ממשיכים", run: "אסוף 20 ברקים וטען את נקודת הסיום", escort: "לווה את הרובוט לסדנה" }, ar: { collect: "اجمع الطاقة المعلّمة", charge: "اضغط الشحن عند النهاية", go: "وصل للهدف المعلّم", done: "المهمة اكتملت!", next: "كمّل", run: "اجمع 20 برق واشحن نقطة النهاية", escort: "رافق الروبوت للورشة" } });
     const missionPrompts = localized(lang, { he: ['קח תא אנרגיה אחד והבא אותו לחנות · 3 משלוחים', 'התא בידך — הבא אותו לטבעת החנות', 'עלה לגגות ואסוף 3 ליבות רחפן', 'אסוף 2 כלי תיקון', 'גש לרובוט כדי שיתחיל לעקוב אחריך', 'החזק טעינה ליד כל אחת מ־3 נקודות הכוח'], en: ['Pick up one cell and deliver it to the shop · 3 deliveries', 'Carrying a cell — deliver it to the shop ring', 'Climb the roofs and collect 3 drone cores', 'Collect 2 repair tools', 'Meet the robot to start the escort', 'Hold Charge at each of the 3 power nodes'], ar: ['خذ خلية ووصلها للدكان · 3 توصيلات', 'معك خلية — وصلها لحلقة الدكان', 'اصعد للسطوح واجمع 3 نوى', 'اجمع أداتي تصليح', 'اقترب من الروبوت ليبدأ بمرافقتك', 'اضغط الشحن عند كل نقطة من نقاط الطاقة الثلاث'] });
-    const objective = !challenge && !status.levelDone && status.level === 3 && status.extraGot < 3 ? missionPrompts[status.carrying ? 1 : 0] : !challenge && !status.levelDone && status.level === 4 && status.extraGot < 3 ? missionPrompts[2] : !challenge && !status.levelDone && status.level === 5 ? (status.extraGot < 2 ? missionPrompts[3] : status.nearby && status.escortReady ? extended.charge : status.escorting ? extended.escort : missionPrompts[4]) : !challenge && !status.levelDone && status.level === 6 && status.extraGot < 3 ? missionPrompts[5] : challenge ? status.runDone ? extended.done : status.bolts < 20 ? extended.run : status.runTime < 20 ? (translateValue(lang, lang === 'he' ? 'המתן עד 20 שניות ואז טען את הסיום' : translateValue(lang, lang === 'ar' ? 'انتظر 20 ثانية ثم اشحن النهاية' : 'Wait until 20 seconds, then charge the finish'))) : status.nearby ? extended.charge : extended.go : status.level > 2 ? status.levelDone ? extended.done : status.extraGot < LEVELS[status.level - 1].required ? extended.collect : status.level === 5 ? extended.escort : status.nearby ? extended.charge : extended.go : status.level === 1 ? status.restored ? t.done : status.cells < 3 ? t.collect : status.nearby ? t.charge : t.generator : status.metroDone ? t.metroDone : status.metroCells < 2 ? t.metroCollect : status.nearby ? t.metroCharge : t.metroStation;
-    const total = challenge ? 20 : LEVELS[status.level - 1].required, got = challenge ? status.bolts : status.level > 2 ? status.extraGot : status.level === 1 ? status.cells : status.metroCells;
+    const objective = !challenge && !status.levelDone && status.level === 3 && status.extraGot < cityMissions(city)[2].required ? missionPrompts[status.carrying ? 1 : 0] : !challenge && !status.levelDone && status.level === 4 && status.extraGot < cityMissions(city)[3].required ? missionPrompts[2] : !challenge && !status.levelDone && status.level === 5 ? (status.extraGot < cityMissions(city)[4].required ? missionPrompts[3] : status.nearby && status.escortReady ? extended.charge : status.escorting ? extended.escort : missionPrompts[4]) : !challenge && !status.levelDone && status.level === 6 && status.extraGot < cityMissions(city)[5].required ? missionPrompts[5] : challenge ? status.runDone ? extended.done : status.bolts < 20 ? extended.run : status.runTime < 20 ? (translateValue(lang, lang === 'he' ? 'המתן עד 20 שניות ואז טען את הסיום' : translateValue(lang, lang === 'ar' ? 'انتظر 20 ثانية ثم اشحن النهاية' : 'Wait until 20 seconds, then charge the finish'))) : status.nearby ? extended.charge : extended.go : status.level > 2 ? status.levelDone ? extended.done : status.extraGot < cityMissions(city)[status.level - 1].required ? extended.collect : status.level === 5 ? extended.escort : status.nearby ? extended.charge : extended.go : status.level === 1 ? status.restored ? t.done : status.cells < 3 ? t.collect : status.nearby ? t.charge : t.generator : status.metroDone ? t.metroDone : status.metroCells < 2 ? t.metroCollect : status.nearby ? t.metroCharge : t.metroStation;
+    const cityLevels=cityMissions(city);
+    const total = challenge ? 20 : cityLevels[status.level - 1].required, got = challenge ? status.bolts : status.level > 2 ? status.extraGot : status.level === 1 ? status.cells : status.metroCells;
     const canCharge = challenge ? status.nearby && status.bolts >= 20 && status.runTime >= 20 && !status.runDone : status.nodeReady || status.nearby && (status.level !== 5 || status.escortReady) && (status.level > 2 ? !status.levelDone && status.extraGot === total : status.level === 1 ? !status.restored && status.cells === 3 : !status.metroDone && status.metroCells === 2);
     const segs = Math.ceil(status.energy / 20);
     return <div className={`play-root ${status.dashing || status.overcharge ? 'is-fast' : ''}`} dir={isRtl(lang)?'rtl':'ltr'}>
@@ -997,13 +1027,13 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored, c
       </div>
       <button type="button" className={`hud-mission ${missionExpanded || status.levelDone ? 'expanded' : ''}`} aria-expanded={missionExpanded || status.levelDone} aria-label={objective} onClick={()=>setMissionExpanded(v=>!v)}>
         <span className="mission-arrow" style={{ transform: `rotate(${status.direction}rad)` }} aria-hidden="true">▲</span>
-        <div><strong>{challenge ? (translateValue(lang, lang === 'he' ? 'מסלול האנרגיה' : translateValue(lang, lang === 'ar' ? 'مسار الطاقة' : 'Energy circuit'))) : localized(lang, LEVELS[status.level - 1].names)}</strong><span className="mission-objective">{objective}</span><small>{challenge ? `${status.bolts}/20 · ${status.runTime}s` : `${got}/${total} · ${status.meters} m`}</small></div>
+        <div><strong>{challenge ? (translateValue(lang, lang === 'he' ? 'מסלול האנרגיה' : translateValue(lang, lang === 'ar' ? 'مسار الطاقة' : 'Energy circuit'))) : localized(lang, cityMissions(city)[status.level - 1].names)}</strong><span className="mission-objective">{challenge ? objective : missionInstruction(city,status.level as LevelId,lang)}</span><small>{challenge ? `${status.bolts}/20 · ${status.runTime}s` : `${got}/${total} · ${status.meters} m`}</small></div>
         {!status.levelDone && !challenge && <div className="pips">{Array.from({ length: total }, (_, i) => <i key={i} className={i < got ? (status.level === 2 ? 'on pink' : 'on') : ''}/>)}</div>}
       </button>
       {(status.sync === "sync-error" || status.sync === "offline" || status.sync === "storage-error") && <div className="play-tutorial" role="alert">{translateValue(lang, lang === "he" ? "שמירת ההתקדמות נכשלה. צא לתפריט ופתח מחדש כדי לנסות לסנכרן" : translateValue(lang, lang === "ar" ? "فشل حفظ التقدم. افتح اللعبة مجددًا لمحاولة المزامنة" : "Progress save failed. Reopen the game to retry sync"))}</div>}
       {status.tutorial && <div className="play-tutorial">{t.start}</div>}
-      {status.celebrating && <div className="victory"><div className="rays"/><strong>{extended.done}</strong><span>{localized(lang, LEVELS[status.level - 1].names)}</span></div>}
-      {!challenge && status.levelDone && !status.celebrating && <div className="level-complete"><strong>{ui.reward}{LEVELS[status.level - 1].rewardCoins} {ui.coins}</strong><button className="btn3d yellow" onClick={() => { input.current.next = true; }}>{status.level < 6 ? `${extended.next} · ${ui.level} ${status.level + 1}` : `${translateValue(lang, lang === 'he' ? 'העיר התעוררה! לעיר הבאה' : translateValue(lang, lang === 'ar' ? 'المدينة استيقظت! للمدينة التالية' : 'City awakened! Next city'))} · Level ${city + 1}`}</button></div>}{challenge && status.runDone && <div className="level-complete"><strong>+40 Coin</strong><button className="btn3d yellow" onClick={onMenu}>{t.menu}</button></div>}
+      {status.celebrating && <div className="victory"><div className="rays"/><strong>{extended.done}</strong><span>{localized(lang, cityMissions(city)[status.level - 1].names)}</span></div>}
+      {!challenge && status.levelDone && !status.celebrating && <div className="level-complete"><strong>{ui.reward}{cityMissions(city)[status.level - 1].rewardCoins} {ui.coins}</strong><button className="btn3d yellow" onClick={() => { input.current.next = true; }}>{status.level < 6 ? `${extended.next} · ${ui.level} ${status.level + 1}` : city>=CAMPAIGN_CITY_COUNT?localized(lang,{en:'Adventure complete · Back to city map',he:'ההרפתקה הושלמה · חזרה למפה',ar:'المغامرة اكتملت · ارجع للخريطة'}):`${cityName(city+1,lang)} →`}</button></div>}{challenge && status.runDone && <div className="level-complete"><strong>+40 Coin</strong><button className="btn3d yellow" onClick={onMenu}>{t.menu}</button></div>}
       <div className={`play-controls ${gestureMode ? "gesture-controls" : ""}`}>
         <div className="play-stick" onPointerDown={e => { e.currentTarget.setPointerCapture(e.pointerId); stick(e); }} onPointerMove={e => { if (e.currentTarget.hasPointerCapture(e.pointerId))
             stick(e); }} onPointerUp={release} onPointerCancel={release}><span ref={knob}/></div>
@@ -1013,7 +1043,7 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored, c
           <button className="btn3d round yellow act-jump" onPointerDown={() => { input.current.jump = true; }}><span>{t.jump}</span></button>
         </div>
       </div>
-      {paused && <div className="play-pause"><div className="pause-card"><h2>{t.pause}</h2><button className="btn3d blue" onClick={()=>{cancelTouch();const value=!gestureMode;setGestureMode(value);try{localStorage.setItem('blu_gestures',value?'1':'0');}catch{}}}>{gestureMode ? '◉' : '☝'} · {localized(lang,{en:'Touch gestures',he:'שליטה במחוות',ar:'التحكم بالإيماءات'})}</button><p>{localized(lang,{en:'Drag to move · swipe up to jump · swipe down to slide · double tap to dash · hold near a beacon to charge',he:'גרור לתנועה · למעלה לקפיצה · למטה להחלקה · הקש פעמיים לדאש · החזק ליד יעד לטעינה',ar:'اسحب للتحرك · للأعلى للقفز · للأسفل للانزلاق · انقر مرتين للاندفاع · اضغط مطولًا قرب الهدف للشحن'})}</p>{LEVELS.map(level => <p key={level.id}>{ui.level} {level.id} · {localized(lang, level.names)} {status.completed.includes(level.id) ? "✓" : level.id === status.level ? `${got}/${level.required}` : ui.locked}</p>)}<p>{ui.coins}: {status.coins}{walletTesting ? ` · BLU: ${status.blu}` : ""}</p><p>{ui.dash}: {status.dashLevel}/3</p>{walletTesting && <button className="btn3d yellow" disabled={status.coins < COINS_PER_BLU} onClick={() => { input.current.exchange = true; }}>{ui.exchange}</button>}<button className="btn3d blue" disabled={status.coins < 120 && (!walletTesting || status.blu < DASH_COST_BLU) || status.dashLevel >= 3} onClick={() => { input.current.upgrade = true; }}>{ui.dash} · 120 Coin</button><small>{getSyncStatus() === "cloud" ? "Cloud save" : ui.local}</small><button className="btn3d yellow" onClick={() => setPaused(false)}>{t.continue}</button><button className="btn3d blue" onClick={onMenu}>{t.menu}</button></div></div>}
+      {paused && <div className="play-pause"><div className="pause-card"><h2>{t.pause}</h2><button className="btn3d blue" onClick={()=>{cancelTouch();const value=!gestureMode;setGestureMode(value);try{localStorage.setItem('blu_gestures',value?'1':'0');}catch{}}}>{gestureMode ? '◉' : '☝'} · {localized(lang,{en:'Touch gestures',he:'שליטה במחוות',ar:'التحكم بالإيماءات'})}</button><p>{localized(lang,{en:'Drag to move · swipe up to jump · swipe down to slide · double tap to dash · hold near a beacon to charge',he:'גרור לתנועה · למעלה לקפיצה · למטה להחלקה · הקש פעמיים לדאש · החזק ליד יעד לטעינה',ar:'اسحب للتحرك · للأعلى للقفز · للأسفل للانزلاق · انقر مرتين للاندفاع · اضغط مطولًا قرب الهدف للشحن'})}</p>{cityLevels.map(level => <p key={level.id}>{ui.level} {level.id} · {localized(lang, level.names)} {status.completed.includes(level.id) ? "✓" : level.id === status.level ? `${got}/${level.required}` : ui.locked}</p>)}<p>{ui.coins}: {status.coins}{walletTesting ? ` · BLU: ${status.blu}` : ""}</p><p>{ui.dash}: {status.dashLevel}/3</p>{walletTesting && <button className="btn3d yellow" disabled={status.coins < COINS_PER_BLU} onClick={() => { input.current.exchange = true; }}>{ui.exchange}</button>}<button className="btn3d blue" disabled={status.coins < 120 && (!walletTesting || status.blu < DASH_COST_BLU) || status.dashLevel >= 3} onClick={() => { input.current.upgrade = true; }}>{ui.dash} · 120 Coin</button><small>{getSyncStatus() === "cloud" ? "Cloud save" : ui.local}</small><button className="btn3d yellow" onClick={() => setPaused(false)}>{t.continue}</button><button className="btn3d blue" onClick={onMenu}>{t.menu}</button></div></div>}
     </>}
   </div>;
 }
