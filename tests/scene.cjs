@@ -106,9 +106,14 @@ for(const city of [1,2,3]){
   const street=Heritage(city,new THREE.Texture());street.root.updateMatrixWorld(true);
   const bounds=street.blockers.map(b=>new THREE.Box3().setFromObject(b));
   assert.equal(bounds.length,4);
-  for(const b of bounds)assert.ok(b.max.x<-20.3,'Heritage building body must clear the sidewalk');
+  for(const b of bounds){assert.ok(b.max.x<-20.3,'Heritage building body must clear the sidewalk');for(const z of [-16,-36])assert.ok(b.max.z<z-4||b.min.z>z+4,'Heritage plots must clear crossing streets');}
   for(let i=0;i<bounds.length;i++)for(let j=i+1;j<bounds.length;j++)assert.equal(bounds[i].intersectsBox(bounds[j]),false,'Heritage plots must not overlap');
-  let batches=0;street.root.traverse(o=>{if(o.isInstancedMesh)batches++;});assert.equal(batches,5,'Facade ornaments are batched by material');
+  let batches=0;street.root.traverse(o=>{if(o.isInstancedMesh)batches++;});assert.equal(batches,10,'Facade, glazing and interior geometry must be batched');
+  assert.equal(street.signs.length,4);
+  const reveals=[],glazing=[];street.root.traverse(o=>{if(o.name==='arched window reveal')reveals.push(o);if(o.name==='recessed glazing')glazing.push(o);});
+  assert.equal(reveals.length,1);assert.equal(glazing.length,1);assert.ok(reveals[0].count>=16);assert.equal(reveals[0].count,glazing[0].count);
+  for(let i=0;i<reveals[0].count;i++){const a=new THREE.Matrix4(),b=new THREE.Matrix4();reveals[0].getMatrixAt(i,a);glazing[0].getMatrixAt(i,b);assert.ok(b.elements[12]<a.elements[12],'Glass must sit behind actual window reveal');}
+  for(const g of street.root.children.filter(c=>c.userData.interiorDepth))assert.ok(g.userData.interiorDepth>=2,'Shop cavities require physical depth');
   street.dispose();
 }
 const Render=load('app/components/CityRender.ts',require).CityRender;

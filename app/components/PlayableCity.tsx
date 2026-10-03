@@ -5,7 +5,7 @@ import * as THREE from 'three';
 import { getProgress, checkpointProgress, dispatchProgress, getSyncStatus, useWalletTesting, setMissionPosition } from '../../lib/progress-store';
 import { cityMaterials } from './CityMaterials';
 import { CityRender } from './CityRender';
-import { heritageStreet } from './HeritageStreet';
+import { heritageStreet, HERITAGE_PLOTS } from './HeritageStreet';
 import { businessPlot, overlapsBusinessPlot, applyCommand, type GameCommand, type LevelProgress, unlockedLevel, cityScale, cityName, cityMissions, missionInstruction, campaignCityIndex, CAMPAIGN_THEMES, CAMPAIGN_CITY_COUNT } from '../../lib/levels';
 import { SPONSOR_SLOTS, localSponsorLogo } from '../../lib/sponsors';
 import { BluRig, toon } from './BluRig';
@@ -319,12 +319,13 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored, c
                 const poolMaterial=new THREE.MeshBasicMaterial({map:glowTexture,transparent:true,opacity:.12,depthWrite:false,blending:THREE.AdditiveBlending});disposables.push(poolMaterial);
                 const pool=new THREE.Mesh(poolGeometry,poolMaterial);pool.rotation.x=-Math.PI/2;pool.position.set(side*13,.015,z);scene.add(pool);lightPools.push({mesh:pool,material:poolMaterial});
             }
-        for (const side of [-1, 1])
+        for (const side of [1])
             for (let z = 8; z > -70; z -= 12) {
                 cyl(.18, 1.4, T(0x8a5a3c), side * 19.3, .7, z);
                 ball(1.3, T(0x3fbf6a), side * 19.3, 2.3, z);
                 ball(.9, T(0x62d98a), side * 19.3 + .4, 3.1, z + .2);
             }
+        for(const {z} of HERITAGE_PLOTS){cyl(.18,1.4,T(0x8a5a3c),-19.3,.7,z);ball(1.05,T(0x467b50),-19.3,2.3,z);ball(.7,T(0x71995d),-19.1,3.1,z+.2);}
         // Elevated rail + launch pad
         box(2.4, .5, 73, T(0x5b6bd6), -9.2, 5.2, -31);
         for (let z = 0; z > -66; z -= 9)
@@ -541,7 +542,7 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored, c
             detail(9.6,.3,4.5,0xd4c4aa,t.x,t.y+5.25,t.z-6.1);
         }
         // Sidewalk furnishings stay outside the playable road and mission checkpoints.
-        for(const side of [-1,1])for(let i=0;i<7;i++){
+        for(const side of [1])for(let i=0;i<7;i++){
             const x=side*19.3,z=8-i*12;
             detail(2.8,.65,1.4,0x9a8979,x,.325,z);
             detail(2.4,.5,1,progress.cityLevel===3?0x4d9d8b:0x5da569,x,.85,z);
@@ -551,13 +552,6 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored, c
                 detail(2.4,.75,.15,0xad8256,x,1.2,z-3.35);
                 for(const dx of [-.85,.85])detail(.18,.7,.6,0x263544,x+dx,.35,z-3);
             }
-        }
-        for(const z of [-10,-34,-58]){
-            detail(1.1,.15,1.1,0xb89c70,-18.5,.85,z);
-            detail(.15,.8,.15,0x344252,-18.5,.4,z);
-            for(const dz of [-1.1,1.1]){detail(.7,.12,.65,0x9e7753,-18.5,.5,z+dz);detail(.7,.7,.12,0x9e7753,-18.5,.9,z+dz+(dz>0?.35:-.35));}
-            detail(2.3,.12,2.8,0xad6e62,-18.5,3,z);
-            detail(.1,3,.1,0x344252,-19.4,1.5,z);
         }
         if(progress.cityLevel===2){
             // Overhead market festoon: a recognizable silhouette without blocking navigation.
@@ -579,6 +573,7 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored, c
         architecture.forEach((a,i)=>{dummy.position.set(a.x,a.y,a.z);dummy.rotation.set(0,0,0);dummy.scale.set(a.w,a.h,a.d);dummy.updateMatrix();detailMesh.setMatrixAt(i,dummy.matrix);detailMesh.setColorAt(i,new THREE.Color(a.color));});
         detailMesh.castShadow=true;detailMesh.receiveShadow=true;scene.add(detailMesh);
         const promenade=heritageStreet(progress.cityLevel,stoneTexture,surfaceLibrary.create('stone',0xf2e4ce));scene.add(promenade.root);cameraBlockers.push(...promenade.blockers);
+        promenade.signs.forEach(sign=>new THREE.TextureLoader().load(sign.url,texture=>{if(!alive){texture.dispose();return;}texture.colorSpace=THREE.SRGBColorSpace;sign.material.map=texture;sign.material.needsUpdate=true;disposables.push(texture);},undefined,()=>{}));
         const cityBanner=document.createElement('canvas');cityBanner.width=1024;cityBanner.height=192;
         const bannerContext=cityBanner.getContext('2d');
         if(bannerContext){bannerContext.fillStyle='#102440';bannerContext.fillRect(0,0,1024,192);bannerContext.fillStyle='#'+theme.accent.toString(16).padStart(6,'0');bannerContext.fillRect(0,176,1024,16);bannerContext.fillStyle='#fff';bannerContext.textAlign='center';bannerContext.font='bold 58px sans-serif';bannerContext.fillText(cityName(progress.cityLevel,'en').toUpperCase(),512,115,960);}
@@ -598,7 +593,8 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored, c
         blu.root.scale.set(1 / worldScale, 1, 1 / worldScale);
         const renderStudio=new CityRender(renderer,scene,sunLight);
         const renderPlayer=new THREE.Vector3();
-        const streetLights=[-1,1].map(()=>{const light=new THREE.PointLight(0xffbe75,18,15,2);scene.add(light);return light;});
+        const streetLights=[-1,1].map(side=>{const light=new THREE.PointLight(0xffbe75,18,15,2);light.position.set(side*15.6*worldScale,3.8,10*worldScale);scene.add(light);return light;});
+        const cafeFillLight=new THREE.PointLight(0xffb66d,16,12,2);cafeFillLight.position.set(-20*worldScale,2.4,6*worldScale);scene.add(cafeFillLight);
         const found = [...progress.cells];
         let restored = progress.completed.includes(1) || serverRestored;
         const metroFound = [...progress.metro];
@@ -1134,7 +1130,8 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored, c
                 state.lastHud = state.time;
                 publish();
             }
-            streetLights.forEach((light,i)=>light.position.set((i===0?-15.6:15.6)*worldScale,3.8,(10+Math.round((state.pos.z-10)/13)*13)*worldScale));
+            streetLights.forEach((light,i)=>{light.position.lerp(tmpV.set((i===0?-15.6:15.6)*worldScale,3.8,THREE.MathUtils.clamp(10+Math.round((state.pos.z-10)/13)*13,-68,10)*worldScale),1-Math.exp(-dt*5));light.intensity=restored?18:5;});
+            cafeFillLight.position.lerp(tmpV.set(-20*worldScale,2.4,HERITAGE_PLOTS.reduce((closest,plot)=>Math.abs(plot.z-state.pos.z)<Math.abs(closest-state.pos.z)?plot.z:closest,HERITAGE_PLOTS[0].z as number)*worldScale),1-Math.exp(-dt*4));
             renderStudio.render(camera,renderPlayer.set(playerX,state.pos.y,playerZ),frameDelta,playing);
         };
         publish();
