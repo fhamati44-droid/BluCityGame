@@ -100,12 +100,13 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored, c
             return;
         }
         const scene = new THREE.Scene();
-        const FOG = getProgress().cityLevel===2?0x8059a5:getProgress().cityLevel===3?0x29456b:0xffbe9c;
+        const FOG = 0x142b50;
         scene.fog = new THREE.Fog(FOG, 40, 150);
         const camera = new THREE.PerspectiveCamera(62, 1, .1, 400);
         renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 1.75));
         renderer.outputColorSpace = THREE.SRGBColorSpace;
-        renderer.toneMapping = THREE.NoToneMapping;
+        renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        renderer.toneMappingExposure = 1.15;
         renderer.domElement.className = 'play-canvas';
         mount.append(renderer.domElement);
         const disposables: {
@@ -133,7 +134,7 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored, c
         const skyGeo = new THREE.SphereGeometry(300, 32, 16);
         const cols: number[] = [];
         const pos = skyGeo.attributes.position;
-        const top = new THREE.Color(progress.cityLevel===3?0x07152f:0x18275c), mid = new THREE.Color(progress.cityLevel===2?0x9c4c9b:progress.cityLevel===3?0x253b69:0x6757a5), low = new THREE.Color(progress.cityLevel===3?0x527693:0xf49c83), tmp = new THREE.Color();
+        const top = new THREE.Color(0x030e29), mid = new THREE.Color(progress.cityLevel===2?0x252449:0x143265), low = new THREE.Color(0x405c83), tmp = new THREE.Color();
         for (let i = 0; i < pos.count; i++) {
             const y = pos.getY(i) / 300;
             if (y > .25)
@@ -147,21 +148,48 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored, c
         disposables.push(skyGeo, skyMat);
         const sky = new THREE.Mesh(skyGeo, skyMat);
         scene.add(sky);
-        const sunMat = new THREE.MeshBasicMaterial({ color: 0xfff0b5, fog: false });
+        const sunMat = new THREE.MeshBasicMaterial({ color: 0xd9ebff, fog: false });
         disposables.push(sunMat);
-        const sun = new THREE.Mesh(new THREE.CircleGeometry(16, 40), sunMat);
+        const sun = new THREE.Mesh(new THREE.CircleGeometry(7, 32), sunMat);
         sun.position.set(-30, 26, -250);
         scene.add(sun);
-        const cloudMat = new THREE.MeshBasicMaterial({ color: 0xffe9f0, fog: false, transparent: true, opacity: .92 });
+        const cloudMat = new THREE.MeshBasicMaterial({ color: 0x718aa9, fog: false, transparent: true, opacity: .3 });
         disposables.push(cloudMat);
         const clouds = [0, 1, 2, 3, 4].map(i => { const g = new THREE.Group(); [[0, 0, 5], [5, -1, 4], [-5, -1.3, 3.6], [2, 2, 3.8]].forEach(([x, y, r]) => { const m = new THREE.Mesh(sphGeo, cloudMat); m.scale.set(r, r * .6, r * .8); m.position.set(x, y, 0); g.add(m); }); g.position.set(-80 + i * 42, 50 + (i % 2) * 14, -170 - (i % 3) * 20); scene.add(g); return g; });
-        scene.add(new THREE.HemisphereLight(0xfff1e6, 0x6c5ce7, 1.6));
-        const sunLight = new THREE.DirectionalLight(0xffe0bd, 2.1);
+        scene.add(new THREE.HemisphereLight(0x9fc6ff, 0x252b43, 1.25));
+        const sunLight = new THREE.DirectionalLight(0xb8d9ff, 2);
         sunLight.position.set(-18, 30, 14);
         scene.add(sunLight);
+        // Small deterministic textures: authored locally, uploaded once, no per-frame canvas work.
+        const surfaceTexture=(kind:'road'|'stone'|'paving'|'glow')=>{
+            const c=document.createElement('canvas');c.width=c.height=256;const ctx=c.getContext('2d');
+            if(ctx){
+                if(kind==='glow'){
+                    const gradient=ctx.createRadialGradient(128,128,0,128,128,125);gradient.addColorStop(0,'rgba(255,211,118,.55)');gradient.addColorStop(.35,'rgba(255,188,80,.2)');gradient.addColorStop(1,'rgba(255,160,60,0)');ctx.fillStyle=gradient;ctx.fillRect(0,0,256,256);
+                }else{
+                    ctx.fillStyle=kind==='road'?'#647080':kind==='stone'?'#ded8cb':'#b6b7b6';ctx.fillRect(0,0,256,256);
+                    let seed=173;const random=()=>{seed=(seed*1664525+1013904223)>>>0;return seed/4294967296;};
+                    for(let i=0;i<3500;i++){const n=Math.floor(100+random()*120);ctx.fillStyle=`rgba(${n},${n},${n},.16)`;ctx.fillRect(random()*256,random()*256,1+random()*2,1+random()*2);}
+                    if(kind!=='road'){
+                        const row=kind==='stone'?32:64;ctx.strokeStyle=kind==='stone'?'#a8a294':'#7d8590';ctx.lineWidth=2;
+                        for(let y=0;y<=256;y+=row){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(256,y);ctx.stroke();for(let x=(y/row)%2?32:0;x<256;x+=64){ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x,y+row);ctx.stroke();}}
+                    }else{
+                        for(let i=0;i<14;i++){ctx.fillStyle='rgba(191,209,227,.07)';ctx.fillRect(random()*220,random()*240,20+random()*60,4+random()*16);}
+                    }
+                }
+            }
+            const texture=new THREE.CanvasTexture(c);texture.colorSpace=THREE.SRGBColorSpace;texture.wrapS=texture.wrapT=THREE.RepeatWrapping;disposables.push(texture);return texture;
+        };
+        const roadTexture=surfaceTexture('road');roadTexture.repeat.set(12,40);
+        const stoneTexture=surfaceTexture('stone');stoneTexture.repeat.set(2,3);
+        const pavingTexture=surfaceTexture('paving');pavingTexture.repeat.set(2,35);
+        const glowTexture=surfaceTexture('glow');
+        const stoneMaterials=new Map<number,THREE.MeshStandardMaterial>();
+        const buildingStone=(color:number)=>{let material=stoneMaterials.get(color);if(!material){material=new THREE.MeshStandardMaterial({color,map:stoneTexture,roughness:.78,metalness:.05});stoneMaterials.set(color,material);disposables.push(material);}return material;};
         // One shared glossy asphalt material; avoid expensive reflection passes.
-        const roadMaterial = new THREE.MeshStandardMaterial({color:0x222f49,roughness:.28,metalness:.25});
+        const roadMaterial = new THREE.MeshStandardMaterial({color:0x34415a,map:roadTexture,roughness:.24,metalness:.35});
         disposables.push(roadMaterial);
+        const pavingMaterial=new THREE.MeshStandardMaterial({color:0xc0b9aa,map:pavingTexture,roughness:.6});disposables.push(pavingMaterial);
         // Streets
         box(120, .4, 170, T(theme.ground), 0, -.3, -36);
         box(31, .06, 110, roadMaterial, 0, -.07, -30);
@@ -172,7 +200,7 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored, c
         }
         for (const x of [-16, 16]) {
             box(.5, .26, 110, T(0xfff3e0), x, .05, -30);
-            box(4, .1, 110, T(0xe8d9ff), x + Math.sign(x) * 2.3, -.02, -30);
+            box(4, .1, 110, pavingMaterial, x + Math.sign(x) * 2.3, -.02, -30);
         }
         for (let z = 12; z > -75; z -= 5.5)
             box(.22, .03, 2.4, B(0xffd43b), 0, -.02, z);
@@ -199,7 +227,7 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored, c
         for (const side of [-1, 1])
             for (let i = 0; i < 13; i++) {
                 const x = side * (24 + (i % 3) * .8), z = 12 - i * 6.9, h = (progress.cityLevel === 2 ? 5 : progress.cityLevel === 3 ? 14 : 8) + ((i * 7 + (side + 1) * 5) % 6) * (progress.cityLevel === 2 ? 1.5 : 3), color = progress.cityLevel === 1 ? PALETTE[(i + (side > 0 ? 3 : 0)) % PALETTE.length] : [theme.building,theme.roof,theme.accent][i%3];
-                cameraBlockers.push(box(6.2, h, 5.6, T(color), x, h / 2, z));
+                cameraBlockers.push(box(6.2, h, 5.6, buildingStone(progress.cityLevel===1?[0xd2bd9d,0xb7c2ce,0xc4af9b][i%3]:progress.cityLevel===2?[0xc3b6a0,0xbca7a0,0xc3cbd1][i%3]:color), x, h / 2, z));
                 cameraBlockers.push(box(6.8, .6, 6.2, T(0x2b2f5e), x, h + .3, z));
                 box(5.4, .3, 4.8, T(0xfff3e0), x, h + .7, z);
                 if (i % 2) {
@@ -254,11 +282,22 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored, c
         scene.add(windowsMesh);
         // Street furniture
         const lamps: THREE.Mesh[] = [];
+        const lightPools: {mesh:THREE.Mesh;material:THREE.MeshBasicMaterial}[]=[];
+        const poolGeometry=new THREE.PlaneGeometry(9,12);disposables.push(poolGeometry);
+
         for (const side of [-1, 1])
             for (let z = 10; z > -70; z -= 13) {
                 cyl(.1, 4.2, T(0x2b2f5e), side * 16.6, 2.1, z);
                 box(1.1, .12, .25, T(0x2b2f5e), side * 16.1, 4.2, z);
-                lamps.push(ball(.32, T(0x6b6590), side * 15.6, 4.05, z));
+                const lanternX=side*15.6;
+                cyl(.42,.3,T(0x26313d),side*16.6,.15,z);
+                cyl(.25,.6,T(0x26313d),side*16.6,.55,z);
+                const glass=box(.5,.65,.5,B(0x66573a),lanternX,4.05,z);lamps.push(glass);
+                box(.75,.18,.75,T(0x26313d),lanternX,4.48,z);
+                box(.65,.16,.65,T(0x26313d),lanternX,3.66,z);
+                for(const dx of [-.24,.24])for(const dz of [-.24,.24])box(.055,.8,.055,T(0x26313d),lanternX+dx,4.05,z+dz);
+                const poolMaterial=new THREE.MeshBasicMaterial({map:glowTexture,transparent:true,opacity:.12,depthWrite:false,blending:THREE.AdditiveBlending});disposables.push(poolMaterial);
+                const pool=new THREE.Mesh(poolGeometry,poolMaterial);pool.rotation.x=-Math.PI/2;pool.position.set(side*13,.015,z);scene.add(pool);lightPools.push({mesh:pool,material:poolMaterial});
             }
         for (const side of [-1, 1])
             for (let z = 4; z > -70; z -= 11) {
@@ -456,7 +495,7 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored, c
             sign.position.copy(terminals[m.id]).add(new THREE.Vector3(0,4.5,-4));scene.add(sign);
             const logo=localSponsorLogo(slot?.logo??null);
             if(logo)new THREE.TextureLoader().load(logo,loaded=>{if(!alive){loaded.dispose();return;}loaded.colorSpace=THREE.SRGBColorSpace;material.map=loaded;material.needsUpdate=true;disposables.push(loaded);},undefined,()=>{});
-            const frontage=box(9,5,4,T(theme.building),sign.position.x,terminals[m.id].y+2.5,sign.position.z-2.1);
+            const frontage=box(9,5,4,buildingStone(0xc8baa4),sign.position.x,terminals[m.id].y+2.5,sign.position.z-2.1);
             cameraBlockers.push(frontage);
             const windows=new THREE.MeshBasicMaterial({color:0x20354b});disposables.push(windows);
             for(const side of [-1,1])box(2.8,1.8,.12,windows,sign.position.x+side*2.6,terminals[m.id].y+1.8,sign.position.z+.12);
@@ -507,7 +546,7 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored, c
             detail(.14,.9,.13,0x20344a,12,12.8,-71.8);
             detail(.75,.14,.13,0x20344a,12.35,12.4,-71.8);
         }
-        const detailMaterial=new THREE.MeshLambertMaterial({color:0xffffff});disposables.push(detailMaterial);
+        const detailMaterial=new THREE.MeshStandardMaterial({color:0xffffff,map:stoneTexture,roughness:.75});disposables.push(detailMaterial);
         const detailMesh=new THREE.InstancedMesh(boxGeo,detailMaterial,architecture.length);
         architecture.forEach((a,i)=>{dummy.position.set(a.x,a.y,a.z);dummy.rotation.set(0,0,0);dummy.scale.set(a.w,a.h,a.d);dummy.updateMatrix();detailMesh.setMatrixAt(i,dummy.matrix);detailMesh.setColorAt(i,new THREE.Color(a.color));});
         scene.add(detailMesh);
@@ -984,6 +1023,7 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored, c
             mechanic.visible = activeLevel === 5 || progress.completed.includes(5);
             if (progress.completed.includes(5))
                 mechanic.position.copy(terminals[5]).add(new THREE.Vector3(0,0,-1));
+            lightPools.forEach((p,i)=>{p.material.opacity=i<lightPools.length*progress.completed.length/6?.8:.12;});
             civicTraffic.forEach(m=>m.color.setHex(progress.completed.includes(1)?0x54ff8c:0x27384a));
             sponsorLights.forEach(s=>{
                 const complete=progress.completed.includes(s.mission as LevelId);
