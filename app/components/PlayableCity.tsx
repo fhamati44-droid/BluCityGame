@@ -3,6 +3,7 @@ import { localized, translateValue, isRtl, type Lang } from '../../lib/i18n';
 import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { getProgress, checkpointProgress, dispatchProgress, getSyncStatus, useWalletTesting, setMissionPosition } from '../../lib/progress-store';
+import { cityMaterials } from './CityMaterials';
 import { CityRender } from './CityRender';
 import { heritageStreet } from './HeritageStreet';
 import { businessPlot, overlapsBusinessPlot, applyCommand, type GameCommand, type LevelProgress, unlockedLevel, cityScale, cityName, cityMissions, missionInstruction, campaignCityIndex, CAMPAIGN_THEMES, CAMPAIGN_CITY_COUNT } from '../../lib/levels';
@@ -201,12 +202,13 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored, c
         const stoneTexture=surfaceTexture('stone');stoneTexture.repeat.set(2,3);
         const pavingTexture=surfaceTexture('paving');pavingTexture.repeat.set(2,35);
         const glowTexture=surfaceTexture('glow');
+        const surfaceLibrary=cityMaterials(renderer,{asphalt:roadTexture,stone:stoneTexture,paving:pavingTexture});
         const stoneMaterials=new Map<number,THREE.MeshStandardMaterial>();
-        const buildingStone=(color:number)=>{let material=stoneMaterials.get(color);if(!material){material=new THREE.MeshStandardMaterial({color,map:stoneTexture,roughness:.78,metalness:.05});stoneMaterials.set(color,material);disposables.push(material);}return material;};
+        const buildingStone=(color:number)=>{let material=stoneMaterials.get(color);if(!material){material=surfaceLibrary.create('stone',color);stoneMaterials.set(color,material);disposables.push(material);}return material;};
         // One shared glossy asphalt material; avoid expensive reflection passes.
-        const roadMaterial = new THREE.MeshStandardMaterial({color:0x34415a,map:roadTexture,roughness:.24,metalness:.35});
+        const roadMaterial = surfaceLibrary.create('asphalt',0xb8c1cc,.48);
         disposables.push(roadMaterial);
-        const pavingMaterial=new THREE.MeshStandardMaterial({color:0xc0b9aa,map:pavingTexture,roughness:.6});disposables.push(pavingMaterial);
+        const pavingMaterial=surfaceLibrary.create('paving',0xffffff,.85);disposables.push(pavingMaterial);
         // Streets
         box(120, .4, 170, T(theme.ground), 0, -.3, -36);
         box(31, .06, 110, roadMaterial, 0, -.07, -30);
@@ -572,11 +574,11 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored, c
             detail(.14,.9,.13,0x20344a,12,12.8,-71.8);
             detail(.75,.14,.13,0x20344a,12.35,12.4,-71.8);
         }
-        const detailMaterial=new THREE.MeshStandardMaterial({color:0xffffff,map:stoneTexture,roughness:.75});disposables.push(detailMaterial);
+        const detailMaterial=surfaceLibrary.create('stone');disposables.push(detailMaterial);
         const detailMesh=new THREE.InstancedMesh(boxGeo,detailMaterial,architecture.length);
         architecture.forEach((a,i)=>{dummy.position.set(a.x,a.y,a.z);dummy.rotation.set(0,0,0);dummy.scale.set(a.w,a.h,a.d);dummy.updateMatrix();detailMesh.setMatrixAt(i,dummy.matrix);detailMesh.setColorAt(i,new THREE.Color(a.color));});
         detailMesh.castShadow=true;detailMesh.receiveShadow=true;scene.add(detailMesh);
-        const promenade=heritageStreet(progress.cityLevel,stoneTexture);scene.add(promenade.root);cameraBlockers.push(...promenade.blockers);
+        const promenade=heritageStreet(progress.cityLevel,stoneTexture,surfaceLibrary.create('stone',0xf2e4ce));scene.add(promenade.root);cameraBlockers.push(...promenade.blockers);
         const cityBanner=document.createElement('canvas');cityBanner.width=1024;cityBanner.height=192;
         const bannerContext=cityBanner.getContext('2d');
         if(bannerContext){bannerContext.fillStyle='#102440';bannerContext.fillRect(0,0,1024,192);bannerContext.fillStyle='#'+theme.accent.toString(16).padStart(6,'0');bannerContext.fillRect(0,176,1024,16);bannerContext.fillStyle='#fff';bannerContext.textAlign='center';bannerContext.font='bold 58px sans-serif';bannerContext.fillText(cityName(progress.cityLevel,'en').toUpperCase(),512,115,960);}
@@ -1137,7 +1139,7 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored, c
         };
         publish();
         animate();
-        return () => { alive=false; cancelAnimationFrame(frame); resize.disconnect(); window.removeEventListener('keydown', down); window.removeEventListener('keyup', up); renderStudio.dispose(); promenade.dispose(); mats.forEach(m => m.dispose()); disposables.forEach(d => d.dispose()); windowsMesh.dispose(); detailMesh.dispose(); boltMesh.dispose(); renderer.dispose(); renderer.domElement.remove(); };
+        return () => { alive=false; cancelAnimationFrame(frame); resize.disconnect(); window.removeEventListener('keydown', down); window.removeEventListener('keyup', up); renderStudio.dispose(); surfaceLibrary.dispose(); promenade.dispose(); mats.forEach(m => m.dispose()); disposables.forEach(d => d.dispose()); windowsMesh.dispose(); detailMesh.dispose(); boltMesh.dispose(); renderer.dispose(); renderer.domElement.remove(); };
     }, [serverRestored, challenge, mission, replay]);
     // Touch: swipe up = jump, down = slide, sideways = dash (anywhere on the stage)
     useEffect(() => { try { setGestureMode(localStorage.getItem('blu_gestures') === '1'); } catch {} }, []);

@@ -1,0 +1,95 @@
+[
+  {
+    "surface": "asphalt",
+    "asset": "Asphalt033",
+    "source": "https://ambientcg.com/a/Asphalt033",
+    "download": "https://ambientcg.com/get?file=Asphalt033_1K-JPG.zip",
+    "creationMethod": "PBRPhotogrammetry",
+    "license": "CC0-1.0",
+    "files": [
+      {
+        "path": "public/materials/asphalt-color.webp",
+        "sizeBytes": 15244,
+        "sourceSha256": "126edfd31019dcc0e108ce6966eb0c23f772f130a3abcc3be6daedc590cbb7f8",
+        "sha256": "7b678f90e0213f188bf697ec1117e9d9031210a6f06c3aacf581aafec1f68597",
+        "resolution": 512
+      },
+      {
+        "path": "public/materials/asphalt-normal.webp",
+        "sizeBytes": 108144,
+        "sourceSha256": "34bf3e95a41a3856c291d2cb039dc75e5a72cc9499343248c6c7e9c1a91a9336",
+        "sha256": "b6d27af9f37d7dcdbb03443b042c776d3e1b9280ca8ace992b97a4e1e1a459d9",
+        "resolution": 512
+      },
+      {
+        "path": "public/materials/asphalt-roughness.webp",
+        "sizeBytes": 43312,
+        "sourceSha256": "ab1dee12de196e7f1462fd01ebb629e0ae68af9de08c26d38abd2d11dfe2022a",
+        "sha256": "ac58a4fa1fce8f2d09dd2c1e329c8973db7ee88ca3b7b081890b2b12cf117ba5",
+        "resolution": 512
+      }
+    ]
+  },
+  {
+    "surface": "stone",
+    "asset": "Bricks052",
+    "source": "https://ambientcg.com/a/Bricks052",
+    "download": "https://ambientcg.com/get?file=Bricks052_1K-JPG.zip",
+    "creationMethod": "PBRPhotogrammetry",
+    "license": "CC0-1.0",
+    "files": [
+      {
+        "path": "public/materials/stone-color.webp",
+        "sizeBytes": 32088,
+        "sourceSha256": "f582cfe4017a7b95595c0562fb8bd5f28812d3f129379ac0077839331a7b340d",
+        "sha256": "e3e24fcce2cc9c6e25773b86ae8cf1edd4305fce4a854ad74e7b740637d1e649",
+        "resolution": 512
+      },
+      {
+        "path": "public/materials/stone-normal.webp",
+        "sizeBytes": 68830,
+        "sourceSha256": "82bf53fa9d7b8902c88249b3802a6d9ae90bad20bca9fbb9df80771459544d40",
+        "sha256": "698ef0b850e49cc619d31330e251fa3ff29e049e57d3a8fd7723f94ea468d4f0",
+        "resolution": 512
+      },
+      {
+        "path": "public/materials/stone-roughness.webp",
+        "sizeBytes": 24174,
+        "sourceSha256": "e9fa8b793aa4a088dcbd55985de2820ff2210865f4c01af928edb00827e7b696",
+        "sha256": "7c3ba6b3ca0d1ef4e266a1431186598e639feb08cad0d0981c65aa42518f9a86",
+        "resolution": 512
+      }
+    ]
+  },
+  {
+    "surface": "paving",
+    "asset": "PavingStones142",
+    "source": "https://ambientcg.com/a/PavingStones142",
+    "download": "https://ambientcg.com/get?file=PavingStones142_1K-JPG.zip",
+    "creationMethod": "PBRPhotogrammetry",
+    "license": "CC0-1.0",
+    "files": [
+      {
+        "path": "public/materials/paving-color.webp",
+        "sizeBytes": 83608,
+        "sourceSha256": "ee12bb519e6281a32f1c960c86bbdb76ea9e3873bc1442c7bea26d75ac72b914",
+        "sha256": "3c1f9c0fd32a6eaa8f4807f0de4e6a5b0f832f68bb03d1c2c7915532d7171704",
+        "resolution": 512
+      },
+      {
+        "path": "public/materials/paving-normal.webp",
+        "sizeBytes": 89642,
+        "sourceSha256": "4a0b5c742de703eda78627e3cbad75085dc65a8eeb384d418b45b58adfd64b98",
+        "sha256": "8e0523458fd347f2494991577683f362795116cc3a0069e5e61f24116df8c85b",
+        "resolution": 512
+      },
+      {
+        "path": "public/materials/paving-roughness.webp",
+        "sizeBytes": 61844,
+        "sourceSha256": "e13fb1183833a5964edd475196a7aa622107b90a3dc0da94226bf7350a76b671",
+        "sha256": "ca77fe9fefd99c9f64ea36299571ff2b7e615f6a4aca232e5a4ebf4676dcccdd",
+        "resolution": 512
+      }
+    ]
+  }
+]

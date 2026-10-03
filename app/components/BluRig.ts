@@ -63,7 +63,7 @@ export class BluRig {
 
   constructor() {
     const R = 0.56, H = 1.45, LEG = 0.8;
-    const blue = new THREE.MeshStandardMaterial({color:0x1f7bff,roughness:.3,metalness:.22,emissive:0x2aa8ff,emissiveIntensity:.12}), rim = toon(0x7fd4ff), navy = toon(0x17306a), white = toon(0xffffff), silver = toon(0xcfdcec), shoe = toon(0x1c5fe6);
+    const blue = new THREE.MeshPhysicalMaterial({color:0x1f7bff,roughness:.27,metalness:.65,clearcoat:.8,clearcoatRoughness:.18,emissive:0x2aa8ff,emissiveIntensity:.08}), rim = new THREE.MeshStandardMaterial({color:0x7fd4ff,metalness:.65,roughness:.25,emissive:0x37dfff,emissiveIntensity:.12}), navy = toon(0x17306a), white = toon(0xffffff), silver = new THREE.MeshStandardMaterial({color:0xcfdcec,metalness:.9,roughness:.22}), shoe = toon(0x1c5fe6);
     this.bodyMat = blue;this.shoeMat=shoe as THREE.MeshToonMaterial;this.gloveMat=toon(0xffffff) as THREE.MeshToonMaterial;this.disposables.push(this.gloveMat);
     this.disposables.push(blue, rim, navy, white, silver, shoe, this.outlineMat);
     const add = (geo: THREE.BufferGeometry, mat: THREE.Material, parent: THREE.Object3D, ink = 0.022) => {

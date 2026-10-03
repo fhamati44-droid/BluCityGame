@@ -1,14 +1,14 @@
 import * as THREE from 'three';
 
 /** Authored street modules: reserved plots, arched glazing, cornices, balconies and mansard roofs. */
-export function heritageStreet(city:number,stoneMap:THREE.Texture){
+export function heritageStreet(city:number,stoneMap:THREE.Texture,stoneMaterial?:THREE.MeshStandardMaterial){
   const root=new THREE.Group();root.name='BLU heritage promenade';const resources:{dispose():void}[]=[];const blockers:THREE.Mesh[]=[];
   const cube=new THREE.BoxGeometry(1,1,1);resources.push(cube);
-  const stone=new THREE.MeshStandardMaterial({color:0xc6b395,map:stoneMap,roughness:.82});
+  const stone=stoneMaterial ?? new THREE.MeshStandardMaterial({color:0xc6b395,map:stoneMap,roughness:.82});
   const trim=new THREE.MeshStandardMaterial({color:0xe4d3b6,roughness:.65});
   const iron=new THREE.MeshStandardMaterial({color:0x26333e,metalness:.65,roughness:.4});
   const slate=new THREE.MeshStandardMaterial({color:0x233044,metalness:.15,roughness:.65});
-  const glass=new THREE.MeshStandardMaterial({color:0xbecfce,metalness:.15,roughness:.16,emissive:0xffc471,emissiveIntensity:.8});resources.push(stone,trim,iron,slate,glass);
+  const glass=new THREE.MeshStandardMaterial({color:0xbecfce,metalness:0,roughness:.12,emissive:0xffc471,emissiveIntensity:.8});resources.push(stone,trim,iron,slate,glass);
   const parts:{parent:THREE.Group;mat:THREE.Material;x:number;y:number;z:number;w:number;h:number;d:number}[]=[];
   const box=(g:THREE.Group,mat:THREE.Material,w:number,h:number,d:number,x:number,y:number,z:number)=>parts.push({parent:g,mat,w,h,d,x,y,z});
   const arch=new THREE.Shape();arch.moveTo(-.7,0);arch.lineTo(.7,0);arch.lineTo(.7,1.5);arch.absarc(0,1.5,.7,0,Math.PI,false);arch.lineTo(-.7,0);

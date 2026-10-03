@@ -9,7 +9,7 @@ class Rig{constructor(){this.root=new THREE.Group();}update(){}setEnergy(){}setE
 let rejectFinish=false;
 const store={useWalletTesting:()=>false,setMissionPosition(){},getProgress:()=>progress,getSyncStatus:()=> 'device',dispatchProgress:c=>(progress=rejectFinish&&c.type==='finish'?progress:g.applyCommand(progress,c,clock)),checkpointProgress:s=>{for(const l of g.LEVELS){const flags=l.id===1?s.cells:l.id===2?s.metro:s.objectives[l.id];flags.forEach((v,i)=>{if(v)progress=g.applyCommand(progress,{type:'collect',id:l.id,index:i},clock);});if(l.id===1?s.restored:l.id===2?s.metroDone:s.completed.includes(l.id))progress=g.applyCommand(progress,{type:'finish',id:l.id},clock);}return progress;}};
 let source=fs.readFileSync('app/components/PlayableCity.tsx','utf8');source=source.replace('const key = new Set<string>();','globalThis.sceneTest={state,input:input.current,camera,worldScale,blu,cameraBlockers};const key = new Set<string>();');
-const out=ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2020,jsx:ts.JsxEmit.ReactJSX}}).outputText;const mod={exports:{}};const ctx={exports:mod.exports,module:mod,require:n=>n.includes("i18n")?require("./i18n-helper.cjs"):n==='react'?react:n==='three'?new Proxy(THREE,{get:(o,k)=>k==='WebGLRenderer'?Renderer:k==='TextureLoader'?class{load(){}}:o[k]}):n==='./CityRender'?load('app/components/CityRender.ts',require):n==='./HeritageStreet'?load('app/components/HeritageStreet.ts',require):n==='./BluRig'?{BluRig:Rig,toon:c=>new THREE.MeshToonMaterial({color:c})}:n.includes('progress-store')?store:n.includes('levels')?g:n.includes('sponsors')?load('lib/sponsors.ts',require):require(n),document:{hidden:false,createElement:element},window:{addEventListener(){},removeEventListener(){}},navigator:{vibrate(){}},localStorage:{getItem(){return null;}},performance:{now:()=>clock},devicePixelRatio:1,ResizeObserver:class{constructor(fn){this.fn=fn;}observe(){this.fn();}disconnect(){}},requestAnimationFrame:fn=>(frame=fn,1),cancelAnimationFrame(){},Date,Math,Array,Set,JSON,Number};vm.createContext(ctx);vm.runInContext(out,ctx);mod.exports.default({lang:'en',onMenu(){},onReward(){},serverRestored:false});effects[0]();const scene=ctx.sceneTest;
+const out=ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2020,jsx:ts.JsxEmit.ReactJSX}}).outputText;const mod={exports:{}};const ctx={exports:mod.exports,module:mod,require:n=>n.includes("i18n")?require("./i18n-helper.cjs"):n==='react'?react:n==='three'?new Proxy(THREE,{get:(o,k)=>k==='WebGLRenderer'?Renderer:k==='TextureLoader'?class{load(){}}:o[k]}):n==='./CityMaterials'?load('app/components/CityMaterials.ts',n=>n==='three'?new Proxy(THREE,{get:(o,k)=>k==='TextureLoader'?class{load(){}}:o[k]}):require(n)):n==='./CityRender'?load('app/components/CityRender.ts',require):n==='./HeritageStreet'?load('app/components/HeritageStreet.ts',require):n==='./BluRig'?{BluRig:Rig,toon:c=>new THREE.MeshToonMaterial({color:c})}:n.includes('progress-store')?store:n.includes('levels')?g:n.includes('sponsors')?load('lib/sponsors.ts',require):require(n),document:{hidden:false,createElement:element},window:{addEventListener(){},removeEventListener(){}},navigator:{vibrate(){}},localStorage:{getItem(){return null;}},performance:{now:()=>clock},devicePixelRatio:1,ResizeObserver:class{constructor(fn){this.fn=fn;}observe(){this.fn();}disconnect(){}},requestAnimationFrame:fn=>(frame=fn,1),cancelAnimationFrame(){},Date,Math,Array,Set,JSON,Number};vm.createContext(ctx);vm.runInContext(out,ctx);mod.exports.default({lang:'en',onMenu(){},onReward(){},serverRestored:false});effects[0]();const scene=ctx.sceneTest;
 const tick=(n=1)=>{for(let i=0;i<n;i++){clock+=40;frame();}};scene.input.start=true;tick();
 // Keep the character inside the unobstructed center of portrait screens.
 for(const [x,z,y] of [[-35,-20,0],[35,-20,0],[0,-50,7]]){
@@ -116,3 +116,35 @@ let draws=0;const fallbackRenderer={render(){draws++;},setPixelRatio(){},setSize
 const fallback=new Render(fallbackRenderer,new THREE.Scene(),new THREE.DirectionalLight());
 fallback.resize(360,800);fallback.render(new THREE.PerspectiveCamera(),new THREE.Vector3(),.016,true);assert.equal(draws,1);fallback.dispose();
 console.log('PASS: heritage plot separation, batched facade geometry and renderer fallback');
+
+const requests=[];
+const PBR=load('app/components/CityMaterials.ts',n=>n==='three'?new Proxy(THREE,{get:(o,k)=>k==='TextureLoader'?class{load(url,success,_,failure){const texture=new THREE.Texture();requests.push({url,success,failure,texture});return texture;}}:o[k]}):require(n)).cityMaterials;
+const fallbackTextures={asphalt:new THREE.Texture(),stone:new THREE.Texture(),paving:new THREE.Texture()};
+const library=PBR({capabilities:{getMaxAnisotropy:()=>16}},fallbackTextures);
+const masonry=library.create('stone'),second=library.create('stone');
+assert.equal(masonry.map,fallbackTextures.stone,'Photo maps switch atomically after all three arrive');
+const stoneRequests=requests.filter(r=>r.url.includes('stone-'));
+stoneRequests[0].success(stoneRequests[0].texture);
+stoneRequests[1].success(stoneRequests[1].texture);
+assert.equal(masonry.map,fallbackTextures.stone);
+stoneRequests[2].success(stoneRequests[2].texture);
+assert.equal(masonry.map,second.map,'Buildings share one texture set');
+assert.equal(masonry.map.colorSpace,THREE.SRGBColorSpace);
+assert.equal(masonry.normalMap.colorSpace,THREE.NoColorSpace);
+assert.equal(masonry.roughnessMap.colorSpace,THREE.NoColorSpace);
+assert.equal(masonry.metalness,0,'Masonry is a dielectric');
+assert.equal(masonry.map.anisotropy,4);
+const shader={uniforms:{},vertexShader:THREE.ShaderLib.standard.vertexShader};
+masonry.onBeforeCompile(shader);
+assert.equal(shader.uniforms.bluTileMeters.value,1.25);
+assert.ok(shader.vertexShader.includes('vNormalMapUv = bluSurfaceUv'));
+assert.ok(shader.vertexShader.includes('instanceMatrix * bluWorld'));
+let released=0;requests.forEach(r=>r.texture.addEventListener('dispose',()=>released++));
+library.dispose();assert.equal(released,9);
+const late=requests.find(r=>r.url.includes('asphalt-color'));late.success(late.texture);
+assert.equal(released,10,'Late-loaded textures must release after scene unmount');
+const crypto=require('node:crypto');
+for(const asset of JSON.parse(fs.readFileSync('public/materials/sources.json','utf8')))for(const file of asset.files){
+ const bytes=fs.readFileSync(file.path);assert.equal(bytes.toString('ascii',0,4),'RIFF');assert.equal(bytes.toString('ascii',8,12),'WEBP');assert.equal(crypto.createHash('sha256').update(bytes).digest('hex'),file.sha256);
+}
+console.log('PASS: scanned PBR map sharing, color spaces, world UVs, late-load cleanup and asset integrity');
