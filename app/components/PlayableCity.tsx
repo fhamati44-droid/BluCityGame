@@ -100,7 +100,7 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored, c
             return;
         }
         const scene = new THREE.Scene();
-        const FOG = 0xffbe9c;
+        const FOG = getProgress().cityLevel===2?0x8059a5:getProgress().cityLevel===3?0x29456b:0xffbe9c;
         scene.fog = new THREE.Fog(FOG, 40, 150);
         const camera = new THREE.PerspectiveCamera(62, 1, .1, 400);
         renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 1.75));
@@ -133,7 +133,7 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored, c
         const skyGeo = new THREE.SphereGeometry(300, 32, 16);
         const cols: number[] = [];
         const pos = skyGeo.attributes.position;
-        const top = new THREE.Color(0x18275c), mid = new THREE.Color(0x6757a5), low = new THREE.Color(0xf49c83), tmp = new THREE.Color();
+        const top = new THREE.Color(progress.cityLevel===3?0x07152f:0x18275c), mid = new THREE.Color(progress.cityLevel===2?0x9c4c9b:progress.cityLevel===3?0x253b69:0x6757a5), low = new THREE.Color(progress.cityLevel===3?0x527693:0xf49c83), tmp = new THREE.Color();
         for (let i = 0; i < pos.count; i++) {
             const y = pos.getY(i) / 300;
             if (y > .25)
@@ -405,24 +405,45 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored, c
             for(const x of [-5,5]){cyl(.12,3.6,T(0x28394c),x,1.8,-17);const light=new THREE.MeshBasicMaterial({color:0x27384a});disposables.push(light);civicTraffic.push(light);box(.6,1.3,.4,T(0x17263c),x,3,-17);ball(.19,light,x,3.3,-16.7);}
             cyl(.7,15,T(0x7998b5),25,7.5,-64);for(const y of [9,12,15])box(5,.15,.4,T(theme.accent),25,y,-64);
         }
-        const sponsorLights:{mission:number;material:THREE.MeshBasicMaterial}[]=[];
+        const sponsorLights:{mission:number;material:THREE.MeshBasicMaterial;halo:THREE.Mesh;windows:THREE.Material}[]=[];
         let alive=true;
         for(const m of missions){
             const slot=SPONSOR_SLOTS.find(s=>s.city===progress.cityLevel&&s.mission===m.id);
             const canvas=document.createElement('canvas');canvas.width=512;canvas.height=160;
             const context=canvas.getContext('2d');
-            if(context){context.fillStyle='#102440';context.fillRect(0,0,512,160);context.fillStyle='#ffffff';context.textAlign='center';context.font='bold 28px sans-serif';context.fillText(slot?.name||m.names.en,256,90,490);}
+            if(context){
+                const accent='#'+(slot?.color??theme.accent).toString(16).padStart(6,'0');
+                context.fillStyle='#102440';context.fillRect(0,0,512,160);
+                context.fillStyle=accent;context.fillRect(0,0,512,8);context.fillRect(0,152,512,8);
+                // Every destination has a visible BLU emblem, including unassigned sponsor slots.
+                context.fillRect(22,35,58,90);context.fillRect(39,23,24,12);
+                context.fillStyle='#102440';context.beginPath();context.moveTo(57,46);context.lineTo(35,84);context.lineTo(51,84);context.lineTo(43,113);context.lineTo(69,72);context.lineTo(53,72);context.closePath();context.fill();
+                context.fillStyle='#ffffff';context.textAlign='center';context.font='bold 30px sans-serif';context.fillText(slot?.name||m.names.en,295,78,400);
+                context.fillStyle=accent;context.font='bold 18px sans-serif';context.fillText('BLU CITY • POWERED BY YOU',295,117,390);
+            }
             const texture=new THREE.CanvasTexture(canvas);disposables.push(texture);
-            const material=new THREE.MeshBasicMaterial({map:texture,color:0x46576b});disposables.push(material);sponsorLights.push({mission:m.id,material});
-            const sign=new THREE.Mesh(new THREE.PlaneGeometry(5,1.55),material);disposables.push(sign.geometry);
-            sign.position.copy(terminals[m.id]).add(new THREE.Vector3(0,3,-4));scene.add(sign);
+            const material=new THREE.MeshBasicMaterial({map:texture,color:0xffffff,side:THREE.DoubleSide});disposables.push(material);
+            const sign=new THREE.Mesh(new THREE.PlaneGeometry(8,2.5),material);disposables.push(sign.geometry);
+            sign.position.copy(terminals[m.id]).add(new THREE.Vector3(0,4.5,-4));scene.add(sign);
             const logo=localSponsorLogo(slot?.logo??null);
             if(logo)new THREE.TextureLoader().load(logo,loaded=>{if(!alive){loaded.dispose();return;}loaded.colorSpace=THREE.SRGBColorSpace;material.map=loaded;material.needsUpdate=true;disposables.push(loaded);},undefined,()=>{});
-            const frontage=box(6,3.2,4,T(theme.building),sign.position.x,terminals[m.id].y+1.6,sign.position.z-2.1);
+            const frontage=box(9,5,4,T(theme.building),sign.position.x,terminals[m.id].y+2.5,sign.position.z-2.1);
             cameraBlockers.push(frontage);
+            const windows=new THREE.MeshBasicMaterial({color:0x20354b});disposables.push(windows);
+            for(const side of [-1,1])box(2.8,1.8,.12,windows,sign.position.x+side*2.6,terminals[m.id].y+1.8,sign.position.z+.12);
+            const halo=box(9.4,.18,.35,B(slot?.color??theme.accent),sign.position.x,sign.position.y+1.5,sign.position.z);
+            sponsorLights.push({mission:m.id,material,halo,windows});
             // Lit frontage gives visible feedback at every completed business.
             box(6,.22,.5,T(slot?.color??theme.accent),sign.position.x,sign.position.y-1,sign.position.z);
         }
+        const cityBanner=document.createElement('canvas');cityBanner.width=1024;cityBanner.height=192;
+        const bannerContext=cityBanner.getContext('2d');
+        if(bannerContext){bannerContext.fillStyle='#102440';bannerContext.fillRect(0,0,1024,192);bannerContext.fillStyle='#'+theme.accent.toString(16).padStart(6,'0');bannerContext.fillRect(0,176,1024,16);bannerContext.fillStyle='#fff';bannerContext.textAlign='center';bannerContext.font='bold 58px sans-serif';bannerContext.fillText(cityName(progress.cityLevel,'en').toUpperCase(),512,115,960);}
+        const bannerTexture=new THREE.CanvasTexture(cityBanner);bannerTexture.colorSpace=THREE.SRGBColorSpace;
+        const bannerMaterial=new THREE.MeshBasicMaterial({map:bannerTexture,side:THREE.DoubleSide});
+        const bannerGeometry=new THREE.PlaneGeometry(19,3.6);disposables.push(bannerTexture,bannerMaterial,bannerGeometry);
+        const banner=new THREE.Mesh(bannerGeometry,bannerMaterial);banner.position.set(0,8,-8);scene.add(banner);
+        for(const x of [-10,10])box(.5,9,.5,T(theme.accent),x,4.5,-8);
         const worldScale = cityScale(progress.cityLevel);
         const world = new THREE.Group();
         for (const child of [...scene.children])
@@ -889,7 +910,12 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored, c
             if (progress.completed.includes(5))
                 mechanic.position.copy(terminals[5]).add(new THREE.Vector3(0,0,-1));
             civicTraffic.forEach(m=>m.color.setHex(progress.completed.includes(1)?0x54ff8c:0x27384a));
-            sponsorLights.forEach(s=>s.material.color.setHex(progress.completed.includes(s.mission as LevelId)?0xffffff:0x46576b));
+            sponsorLights.forEach(s=>{
+                const complete=progress.completed.includes(s.mission as LevelId);
+                s.material.color.setHex(0xffffff);
+                (s.windows as THREE.MeshBasicMaterial).color.setHex(complete?0xffedac:0x20354b);
+                s.halo.scale.y=complete?1:activeLevel===s.mission?1+.3*Math.sin(state.time*4):1;
+            });
             shopLight.material = progress.completed.includes(3) ? litMats.station : shopUnlit;
             workshopLight.material = progress.completed.includes(5) ? litMats.sign : workshopUnlit;
             gate.visible = !progress.completed.includes(6);
@@ -1003,6 +1029,8 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored, c
     const cityLevels=cityMissions(city);
     const total = challenge ? 20 : cityLevels[status.level - 1].required, got = challenge ? status.bolts : status.level > 2 ? status.extraGot : status.level === 1 ? status.cells : status.metroCells;
     const canCharge = challenge ? status.nearby && status.bolts >= 20 && status.runTime >= 20 && !status.runDone : status.nodeReady || status.nearby && (status.level !== 5 || status.escortReady) && (status.level > 2 ? !status.levelDone && status.extraGot === total : status.level === 1 ? !status.restored && status.cells === 3 : !status.metroDone && status.metroCells === 2);
+    const missionSponsor=SPONSOR_SLOTS.find(s=>s.city===city&&s.mission===status.level);
+    const missionLogo=localSponsorLogo(missionSponsor?.logo??null);
     const segs = Math.ceil(status.energy / 20);
     return <div className={`play-root ${status.dashing || status.overcharge ? 'is-fast' : ''}`} dir={isRtl(lang)?'rtl':'ltr'}>
     <div ref={host} className="play-stage" onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd} onTouchCancel={cancelTouch} onClick={() => { if (!started)
@@ -1012,6 +1040,12 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored, c
     {unsupported ? <div className="play-unsupported"><img src="/blu.webp" alt="BLU"/><p>{t.unsupported}</p><button className="btn3d yellow" onClick={onMenu}>{t.resume}</button></div> : !started ? <div className="title-screen" onClick={() => { input.current.start = true; begin(); }}>
       <div className="title-logo"><span className="logo-blu">BLU</span><span className="logo-city">CITY</span></div>
       <p className="level-title">{cityLabel} · {ui.level} {status.level}</p>
+      {!challenge && <div style={{maxWidth:300,padding:'12px 18px',borderRadius:18,background:'rgba(7,21,47,.85)',textAlign:'center',color:'#fff'}}>
+        {missionLogo && <img src={missionLogo} alt={missionSponsor?.name} style={{width:220,height:69,objectFit:'contain'}}/>}
+        <strong style={{display:'block',marginTop:8}}>{localized(lang,cityLevels[status.level-1].names)}</strong>
+        <p style={{fontSize:14,lineHeight:1.5,margin:'8px 0'}}>{missionInstruction(city,status.level,lang)}</p>
+        <span style={{color:'#ffe083'}}>+{cityLevels[status.level-1].rewardCoins} Coin</span>
+      </div>}
       <button className="btn3d yellow tap-play" onClick={e => { e.stopPropagation(); input.current.start = true; begin(); }}>{t.tap}</button>
       <button className="btn3d blue title-menu" onClick={e => { e.stopPropagation(); onMenu(); }}>{t.city}</button>
     </div> : <>
