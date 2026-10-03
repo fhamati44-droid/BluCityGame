@@ -3,6 +3,8 @@ import { localized, translateValue, isRtl, type Lang } from '../../lib/i18n';
 import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { getProgress, checkpointProgress, dispatchProgress, getSyncStatus, useWalletTesting, setMissionPosition } from '../../lib/progress-store';
+import { CityRender } from './CityRender';
+import { heritageStreet } from './HeritageStreet';
 import { businessPlot, overlapsBusinessPlot, applyCommand, type GameCommand, type LevelProgress, unlockedLevel, cityScale, cityName, cityMissions, missionInstruction, campaignCityIndex, CAMPAIGN_THEMES, CAMPAIGN_CITY_COUNT } from '../../lib/levels';
 import { SPONSOR_SLOTS, localSponsorLogo } from '../../lib/sponsors';
 import { BluRig, toon } from './BluRig';
@@ -142,7 +144,7 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored, c
         } return mm; };
         const boxGeo = new THREE.BoxGeometry(1, 1, 1), cylGeo = new THREE.CylinderGeometry(1, 1, 1, 14), sphGeo = new THREE.SphereGeometry(1, 16, 12);
         disposables.push(boxGeo, cylGeo, sphGeo);
-        const box = (w: number, h: number, d: number, mat: THREE.Material, x: number, y: number, z: number, parent: THREE.Object3D = scene) => { const m = new THREE.Mesh(boxGeo, mat); m.scale.set(w, h, d); m.position.set(x, y, z); parent.add(m); return m; };
+        const box = (w: number, h: number, d: number, mat: THREE.Material, x: number, y: number, z: number, parent: THREE.Object3D = scene) => { const m = new THREE.Mesh(boxGeo, mat); m.scale.set(w, h, d); m.position.set(x, y, z); m.castShadow = !(mat instanceof THREE.MeshBasicMaterial); m.receiveShadow = true; parent.add(m); return m; };
         const cyl = (r: number, h: number, mat: THREE.Material, x: number, y: number, z: number, parent: THREE.Object3D = scene) => { const m = new THREE.Mesh(cylGeo, mat); m.scale.set(r, h, r); m.position.set(x, y, z); parent.add(m); return m; };
         const ball = (r: number, mat: THREE.Material, x: number, y: number, z: number, parent: THREE.Object3D = scene) => { const m = new THREE.Mesh(sphGeo, mat); m.scale.setScalar(r); m.position.set(x, y, z); parent.add(m); return m; };
         // Sky: golden-hour gradient dome, sun and drifting clouds
@@ -242,7 +244,7 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored, c
         for (const side of [-1, 1])
             for (let i = 0; i < 13; i++) {
                 const x = side * (24 + (i % 3) * .8), z = 12 - i * 6.9, h = (progress.cityLevel === 2 ? 5 : progress.cityLevel === 3 ? 14 : 8) + ((i * 7 + (side + 1) * 5) % 6) * (progress.cityLevel === 2 ? 1.5 : 3), color = progress.cityLevel === 1 ? PALETTE[(i + (side > 0 ? 3 : 0)) % PALETTE.length] : [theme.building,theme.roof,theme.accent][i%3];
-                if(overlapsBusinessPlot(x,z,6.8,6.2) || [-16,-36].some(cross=>Math.abs(z-cross)<7))continue;
+                if(side===-1 || overlapsBusinessPlot(x,z,6.8,6.2) || [-16,-36].some(cross=>Math.abs(z-cross)<7))continue;
                 cameraBlockers.push(box(6.2, h, 5.6, buildingStone(progress.cityLevel===1?[0xd2bd9d,0xb7c2ce,0xc4af9b][i%3]:progress.cityLevel===2?[0xc3b6a0,0xbca7a0,0xc3cbd1][i%3]:color), x, h / 2, z));
                 cameraBlockers.push(box(6.8, .6, 6.2, T(0x2b2f5e), x, h + .3, z));
                 box(5.4, .3, 4.8, T(0xfff3e0), x, h + .7, z);
@@ -473,6 +475,7 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored, c
         } };
         // BLU
         const blu = new BluRig();
+        blu.root.traverse(o=>{if(o instanceof THREE.Mesh){o.castShadow=true;o.receiveShadow=true;}});
         scene.add(blu.root);
         disposables.push(blu);
         const trail = [0, 1, 2, 3, 4].map(() => { const o = new THREE.Mesh(sphGeo, B(0x6ff7ff)); o.scale.setScalar(.12); scene.add(o); return o; });
@@ -572,7 +575,8 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored, c
         const detailMaterial=new THREE.MeshStandardMaterial({color:0xffffff,map:stoneTexture,roughness:.75});disposables.push(detailMaterial);
         const detailMesh=new THREE.InstancedMesh(boxGeo,detailMaterial,architecture.length);
         architecture.forEach((a,i)=>{dummy.position.set(a.x,a.y,a.z);dummy.rotation.set(0,0,0);dummy.scale.set(a.w,a.h,a.d);dummy.updateMatrix();detailMesh.setMatrixAt(i,dummy.matrix);detailMesh.setColorAt(i,new THREE.Color(a.color));});
-        scene.add(detailMesh);
+        detailMesh.castShadow=true;detailMesh.receiveShadow=true;scene.add(detailMesh);
+        const promenade=heritageStreet(progress.cityLevel,stoneTexture);scene.add(promenade.root);cameraBlockers.push(...promenade.blockers);
         const cityBanner=document.createElement('canvas');cityBanner.width=1024;cityBanner.height=192;
         const bannerContext=cityBanner.getContext('2d');
         if(bannerContext){bannerContext.fillStyle='#102440';bannerContext.fillRect(0,0,1024,192);bannerContext.fillStyle='#'+theme.accent.toString(16).padStart(6,'0');bannerContext.fillRect(0,176,1024,16);bannerContext.fillStyle='#fff';bannerContext.textAlign='center';bannerContext.font='bold 58px sans-serif';bannerContext.fillText(cityName(progress.cityLevel,'en').toUpperCase(),512,115,960);}
@@ -590,6 +594,9 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored, c
         world.scale.set(worldScale, 1, worldScale);
         // The robot remains human sized while the city footprint grows.
         blu.root.scale.set(1 / worldScale, 1, 1 / worldScale);
+        const renderStudio=new CityRender(renderer,scene,sunLight);
+        const renderPlayer=new THREE.Vector3();
+        const streetLights=[-1,1].map(()=>{const light=new THREE.PointLight(0xffbe75,18,15,2);scene.add(light);return light;});
         const found = [...progress.cells];
         let restored = progress.completed.includes(1) || serverRestored;
         const metroFound = [...progress.metro];
@@ -644,7 +651,7 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored, c
         window.addEventListener('keyup', up);
         const size = { w: 1, h: 1 };
         const resize = new ResizeObserver(() => { const w = mount.clientWidth, h = mount.clientHeight; if (!w || !h)
-            return; size.w = w; size.h = h; renderer.setSize(w, h, false); camera.aspect = w / h; camera.fov = 70; camera.updateProjectionMatrix(); });
+            return; size.w = w; size.h = h; renderStudio.resize(w, h); camera.aspect = w / h; camera.fov = 70; camera.updateProjectionMatrix(); });
         resize.observe(mount);
         // Floating text popups projected from world space
         const popup = (text: string, at: THREE.Vector3, kind = '') => { const layer = fx.current; if (!layer)
@@ -667,7 +674,8 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored, c
         const animate = () => {
             frame = requestAnimationFrame(animate);
             const now = performance.now();
-            const dt = Math.min((now - last) / 1000, .04);
+            const frameDelta = (now - last) / 1000;
+            const dt = Math.min(frameDelta, .04);
             last = now;
             if (input.current.exchange) {
                 input.current.exchange = false;
@@ -1124,11 +1132,12 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored, c
                 state.lastHud = state.time;
                 publish();
             }
-            renderer.render(scene, camera);
+            streetLights.forEach((light,i)=>light.position.set((i===0?-15.6:15.6)*worldScale,3.8,(10+Math.round((state.pos.z-10)/13)*13)*worldScale));
+            renderStudio.render(camera,renderPlayer.set(playerX,state.pos.y,playerZ),frameDelta,playing);
         };
         publish();
         animate();
-        return () => { alive=false; cancelAnimationFrame(frame); resize.disconnect(); window.removeEventListener('keydown', down); window.removeEventListener('keyup', up); mats.forEach(m => m.dispose()); disposables.forEach(d => d.dispose()); windowsMesh.dispose(); detailMesh.dispose(); boltMesh.dispose(); renderer.dispose(); renderer.domElement.remove(); };
+        return () => { alive=false; cancelAnimationFrame(frame); resize.disconnect(); window.removeEventListener('keydown', down); window.removeEventListener('keyup', up); renderStudio.dispose(); promenade.dispose(); mats.forEach(m => m.dispose()); disposables.forEach(d => d.dispose()); windowsMesh.dispose(); detailMesh.dispose(); boltMesh.dispose(); renderer.dispose(); renderer.domElement.remove(); };
     }, [serverRestored, challenge, mission, replay]);
     // Touch: swipe up = jump, down = slide, sideways = dash (anywhere on the stage)
     useEffect(() => { try { setGestureMode(localStorage.getItem('blu_gestures') === '1'); } catch {} }, []);

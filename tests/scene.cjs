@@ -9,7 +9,7 @@ class Rig{constructor(){this.root=new THREE.Group();}update(){}setEnergy(){}setE
 let rejectFinish=false;
 const store={useWalletTesting:()=>false,setMissionPosition(){},getProgress:()=>progress,getSyncStatus:()=> 'device',dispatchProgress:c=>(progress=rejectFinish&&c.type==='finish'?progress:g.applyCommand(progress,c,clock)),checkpointProgress:s=>{for(const l of g.LEVELS){const flags=l.id===1?s.cells:l.id===2?s.metro:s.objectives[l.id];flags.forEach((v,i)=>{if(v)progress=g.applyCommand(progress,{type:'collect',id:l.id,index:i},clock);});if(l.id===1?s.restored:l.id===2?s.metroDone:s.completed.includes(l.id))progress=g.applyCommand(progress,{type:'finish',id:l.id},clock);}return progress;}};
 let source=fs.readFileSync('app/components/PlayableCity.tsx','utf8');source=source.replace('const key = new Set<string>();','globalThis.sceneTest={state,input:input.current,camera,worldScale,blu,cameraBlockers};const key = new Set<string>();');
-const out=ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2020,jsx:ts.JsxEmit.ReactJSX}}).outputText;const mod={exports:{}};const ctx={exports:mod.exports,module:mod,require:n=>n.includes("i18n")?require("./i18n-helper.cjs"):n==='react'?react:n==='three'?new Proxy(THREE,{get:(o,k)=>k==='WebGLRenderer'?Renderer:k==='TextureLoader'?class{load(){}}:o[k]}):n==='./BluRig'?{BluRig:Rig,toon:c=>new THREE.MeshToonMaterial({color:c})}:n.includes('progress-store')?store:n.includes('levels')?g:n.includes('sponsors')?load('lib/sponsors.ts',require):require(n),document:{hidden:false,createElement:element},window:{addEventListener(){},removeEventListener(){}},navigator:{vibrate(){}},localStorage:{getItem(){return null;}},performance:{now:()=>clock},devicePixelRatio:1,ResizeObserver:class{constructor(fn){this.fn=fn;}observe(){this.fn();}disconnect(){}},requestAnimationFrame:fn=>(frame=fn,1),cancelAnimationFrame(){},Date,Math,Array,Set,JSON,Number};vm.createContext(ctx);vm.runInContext(out,ctx);mod.exports.default({lang:'en',onMenu(){},onReward(){},serverRestored:false});effects[0]();const scene=ctx.sceneTest;
+const out=ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2020,jsx:ts.JsxEmit.ReactJSX}}).outputText;const mod={exports:{}};const ctx={exports:mod.exports,module:mod,require:n=>n.includes("i18n")?require("./i18n-helper.cjs"):n==='react'?react:n==='three'?new Proxy(THREE,{get:(o,k)=>k==='WebGLRenderer'?Renderer:k==='TextureLoader'?class{load(){}}:o[k]}):n==='./CityRender'?load('app/components/CityRender.ts',require):n==='./HeritageStreet'?load('app/components/HeritageStreet.ts',require):n==='./BluRig'?{BluRig:Rig,toon:c=>new THREE.MeshToonMaterial({color:c})}:n.includes('progress-store')?store:n.includes('levels')?g:n.includes('sponsors')?load('lib/sponsors.ts',require):require(n),document:{hidden:false,createElement:element},window:{addEventListener(){},removeEventListener(){}},navigator:{vibrate(){}},localStorage:{getItem(){return null;}},performance:{now:()=>clock},devicePixelRatio:1,ResizeObserver:class{constructor(fn){this.fn=fn;}observe(){this.fn();}disconnect(){}},requestAnimationFrame:fn=>(frame=fn,1),cancelAnimationFrame(){},Date,Math,Array,Set,JSON,Number};vm.createContext(ctx);vm.runInContext(out,ctx);mod.exports.default({lang:'en',onMenu(){},onReward(){},serverRestored:false});effects[0]();const scene=ctx.sceneTest;
 const tick=(n=1)=>{for(let i=0;i<n;i++){clock+=40;frame();}};scene.input.start=true;tick();
 // Keep the character inside the unobstructed center of portrait screens.
 for(const [x,z,y] of [[-35,-20,0],[35,-20,0],[0,-50,7]]){
@@ -100,3 +100,19 @@ for(const cityLevel of [1,2,3])for(const mission of g.cityMissions(cityLevel)){
 }
 for(let id=1;id<=6;id++){const p=g.businessPlot(id);assert.ok(p.x-p.width/2>20.3,'Storefront must be beyond sidewalk');for(let j=id+1;j<=6;j++)assert.ok(Math.abs(p.z-g.businessPlot(j).z)>p.depth+2,'Plots require gaps');}
 console.log('PASS: 18 practice replays finish without account writes or reward duplication; reserved plots clear sidewalk and one another');
+
+const Heritage=load('app/components/HeritageStreet.ts',require).heritageStreet;
+for(const city of [1,2,3]){
+  const street=Heritage(city,new THREE.Texture());street.root.updateMatrixWorld(true);
+  const bounds=street.blockers.map(b=>new THREE.Box3().setFromObject(b));
+  assert.equal(bounds.length,4);
+  for(const b of bounds)assert.ok(b.max.x<-20.3,'Heritage building body must clear the sidewalk');
+  for(let i=0;i<bounds.length;i++)for(let j=i+1;j<bounds.length;j++)assert.equal(bounds[i].intersectsBox(bounds[j]),false,'Heritage plots must not overlap');
+  let batches=0;street.root.traverse(o=>{if(o.isInstancedMesh)batches++;});assert.equal(batches,5,'Facade ornaments are batched by material');
+  street.dispose();
+}
+const Render=load('app/components/CityRender.ts',require).CityRender;
+let draws=0;const fallbackRenderer={render(){draws++;},setPixelRatio(){},setSize(){}};
+const fallback=new Render(fallbackRenderer,new THREE.Scene(),new THREE.DirectionalLight());
+fallback.resize(360,800);fallback.render(new THREE.PerspectiveCamera(),new THREE.Vector3(),.016,true);assert.equal(draws,1);fallback.dispose();
+console.log('PASS: heritage plot separation, batched facade geometry and renderer fallback');
