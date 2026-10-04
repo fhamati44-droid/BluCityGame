@@ -1,4 +1,5 @@
 'use client';
+import {track} from '../../lib/analytics';
 import { localized, translateValue, isRtl, type Lang } from '../../lib/i18n';
 import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
@@ -121,7 +122,7 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored, c
         let practiceProgress:LevelProgress=parseLevelProgress(JSON.stringify({...savedProgress,completed:Array.from({length:(mission??1)-1},(_,i)=>i+1),claimed:Array.from({length:(mission??1)-1},(_,i)=>i+1),objectives:{},cells:[],metro:[],restored:false,metroDone:(mission??1)>2}));
         const readProgress=()=>replay?practiceProgress:getProgress();
         const gameDispatch=(command:GameCommand)=>{
-            if(!replay)return dispatchProgress(command);
+            if(!replay){const before=getProgress();const next=dispatchProgress(command);if(command.type==='finish'&&!before.completed.includes(command.id as 1)&&next.completed.includes(command.id as 1))track('mission_complete',next.cityLevel,Number(command.id));return next;}
             if(!['collect','finish','mission-start','mission-pickup','mission-charge','mission-escort'].includes(command.type))return practiceProgress;
             practiceProgress={...applyCommand(practiceProgress,command),coins:savedProgress.coins,blu:savedProgress.blu};return practiceProgress;
         };

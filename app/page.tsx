@@ -1,11 +1,13 @@
 'use client';
 import { localized, translateValue, LANGUAGE_NAMES, availableLanguages, resolveLanguage, isRtl, type Lang } from '../lib/i18n';
 import Image from 'next/image';
+import {startAnalytics,track} from '../lib/analytics';
+const AnalyticsPanel=dynamic(()=>import('./components/AnalyticsPanel'),{ssr:false});
 import dynamic from 'next/dynamic';
 import { useEffect, useState } from 'react';
 import GameHub, { type PlayRequest } from './components/GameHub';
 import { unlockedLevel } from '../lib/levels';
-import { getProgress, initializeProgress, refreshProgress } from '../lib/progress-store';
+import { getProgress, initializeProgress, refreshProgress, useWalletTesting } from '../lib/progress-store';
 const PlayableCity = dynamic(() => import('./components/PlayableCity'), { ssr: false, loading: () => <div className="play-boot">BLU CITY…</div> });
 type Action = 'mission' | 'charge' | 'upgrade' | 'district';
 type Player = {
@@ -102,16 +104,19 @@ export default function Home() {
     const [telegram, setTelegram] = useState<Tg | null>(null);
     const [celebrate, setCelebrate] = useState(false);
     const [playing, setPlaying] = useState(false);
+    const testing=useWalletTesting();
+    const [showMetrics,setShowMetrics]=useState(false);
     const [playRequest, setPlayRequest] = useState<PlayRequest>({ mode: 'story', mission: 1 });
     const t: Copy = localized(lang, words);
     const rtl = isRtl(lang);
     useEffect(() => {
         const tg = window.Telegram?.WebApp || null;
         setTelegram(tg);
+        startAnalytics(tg?.initData||'');
         tg?.ready();
         tg?.expand();
         const pref = tg?.initDataUnsafe?.user?.language_code || navigator.language || 'en';
-        let preference=pref;try{preference=new URLSearchParams(location.search).get('lang')||localStorage.getItem('blu_language')||pref;}catch{}
+        let preference=pref;try{const query=new URLSearchParams(location.search),campaign=new URLSearchParams(tg?.initData||'').get('start_param')||query.get('tgWebAppStartParam')||'';preference=query.get('lang')||localStorage.getItem('blu_language')||(campaign.startsWith('cmp_')&&campaign.endsWith('_ar')?'ar':pref);}catch{}
         setLang(resolveLanguage(preference,availableLanguages(null)));
         fetch('/api/languages',{cache:'no-store',signal:AbortSignal.timeout(8000)}).then(r=>r.json()).then(d=>{const allowed=availableLanguages(d.languages?.includes('he')?'IL':null);setLanguages(allowed);let latest=preference;try{latest=localStorage.getItem('blu_language')||preference;}catch{}setLang(resolveLanguage(latest,allowed));}).catch(()=>{});
         if (tg?.initData) {
@@ -131,13 +136,13 @@ export default function Home() {
                         catch { /* keep original authentication code */ }
                     }
                     setConnectionCode(code);
-                    setMode('error');
+                    setMode('error');track('error');
                     return;
                 }
                 setPlayer(d.player);
                 await initializeProgress(tg.initData);
-                setMode('live');
-            }).catch(() => { setConnectionCode('NETWORK_OR_TIMEOUT'); setMode('error'); });
+                setMode('live');track('ready');
+            }).catch(() => { setConnectionCode('NETWORK_OR_TIMEOUT'); setMode('error');track('error'); });
         }
         else {
             void (async () => {
@@ -163,7 +168,7 @@ export default function Home() {
                     setMessage('Could not connect. Please reopen the game');
                 }
                 finally {
-                    setMode('demo');
+                    setMode('demo');track('ready');
                 }
             })();
         }
@@ -267,7 +272,7 @@ export default function Home() {
     }
     const chargeWait = remaining(player.lastCharge, 3, tick), missionWait = remaining(player.lastMission, 1, tick);
     const invite = telegram?.initDataUnsafe?.user?.id ? `https://t.me/${process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME || 'BluCityGame_bot'}?startapp=ref_${telegram.initDataUnsafe.user.id}` : '';
-    async function share(copyOnly = false) { if (!invite) {
+    async function share(copyOnly = false) { track('share'); if (!invite) {
         setMessage(t.notReady);
         return;
     } try {
@@ -280,11 +285,13 @@ export default function Home() {
     }
     catch { /* A cancelled share leaves the page unchanged. */ } }
     const playerName = telegram?.initDataUnsafe?.user?.first_name || 'BLU';
+    if(showMetrics)return <AnalyticsPanel initData={telegram?.initData||''} onClose={()=>setShowMetrics(false)}/>;
     return <main className="game-shell premium-shell" lang={lang} dir={rtl ? 'rtl' : 'ltr'}>
     <div className="background-stars" aria-hidden="true"/>
     <header className="topbar"><div className="logo-lockup"><span className="logo-mark"><Icon name="bolt" size={24}/></span><div><strong>BLU<span className="logo-dot"></span></strong><small>CITY OF ENERGY</small></div></div><div className="topbar-right"><select className="language-select" aria-label={t.language} value={lang} onChange={e => {const value=resolveLanguage(e.target.value,languages);setLang(value);try{localStorage.setItem('blu_language',value);}catch{}}}>{languages.map(code=><option key={code} value={code}>{LANGUAGE_NAMES[code]}</option>)}</select></div></header>
+    {testing&&!playing&&<button onClick={()=>setShowMetrics(true)}>📊 القياس</button>}
     {mode === 'loading' ? <div className="loading-state" role="status"><div className="loading-battery"><Icon name="bolt" size={36}/></div><p>{t.loading}</p><div className="loading-line"/></div> : mode === 'error' ? <section className="error-state" role="alert"><BLUCharacter low/><h1>{t.connectionError}</h1>{connectionCode && <p dir="ltr" style={{ textAlign: 'center', fontFamily: 'monospace', fontSize: 14, overflowWrap: 'anywhere' }}>BLU: {connectionCode}</p>}<GameButton onClick={() => window.location.reload()}>{t.retry}</GameButton></section> : playing ? <PlayableCity lang={lang} onMenu={() => setPlaying(false)} serverRestored={false} challenge={playRequest.mode === 'circuit'} replay={playRequest.mode==='story' && !!playRequest.replay} mission={playRequest.mode === 'story' ? playRequest.mission : undefined} onReward={() => { void refreshProgress(); }}/> : <GameHub lang={lang} name={playerName} username={telegram?.initDataUnsafe?.user?.username} live={mode === 'live'} player={player} busy={busy} chargeWait={chargeWait} onPlay={request => { if (request.mode === 'story' && (request.replay ? !getProgress().completed.includes(request.mission) : request.mission !== unlockedLevel(getProgress())))
-        return; setPlayRequest(request); setPlaying(true); }} onShare={share} onCharge={() => { void act('charge'); }} backButton={telegram?.BackButton}/>}
+        return; track('play',getProgress().cityLevel,request.mode==='story'?request.mission:0); setPlayRequest(request); setPlaying(true); }} onShare={share} onCharge={() => { void act('charge'); }} backButton={telegram?.BackButton}/>}
     {message && <div className="toast" role="status" onClick={() => setMessage('')}><Icon name="spark" size={18}/>{message}</div>}
   </main>;
 }
