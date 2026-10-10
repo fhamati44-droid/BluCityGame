@@ -8,7 +8,7 @@ import { useEffect, useState } from 'react';
 import GameHub, { type PlayRequest } from './components/GameHub';
 import { unlockedLevel } from '../lib/levels';
 import { getProgress, initializeProgress, refreshProgress, useWalletTesting } from '../lib/progress-store';
-const PlayableCity = dynamic(() => import('./components/PlayableCity'), { ssr: false, loading: () => <div className="play-boot">BLU CITY…</div> });
+const PlayableCity = dynamic(() => import('./components/PlayableCity'), { ssr: false, loading: () => <div className="play-boot">TAMAM · NAZARETH</div> });
 type Action = 'mission' | 'charge' | 'upgrade' | 'district';
 type Player = {
     sparks: number;
