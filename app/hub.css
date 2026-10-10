@@ -202,3 +202,8 @@
 .premium-shell .btn3d.yellow{background:#d5a64a;color:#213a2d}
 .premium-shell .btn3d.blue{background:#397758;color:#fffdf4}
 @media(prefers-reduced-motion:reduce){.premium-shell *{animation-duration:.01ms!important;scroll-behavior:auto!important}}
+
+.premium-shell .hub-nav{background:#fffdf7f5;border-top:1px solid #d9e3d6;box-shadow:0 -8px 25px #2443310b}
+.premium-shell .hub-nav button{color:#718374}
+.premium-shell .hub-nav button.active{color:#174d3d;background:#e5efe2}
+body:has(.premium-shell){background:#f7f5ed;color:#173f35;color-scheme:light}
