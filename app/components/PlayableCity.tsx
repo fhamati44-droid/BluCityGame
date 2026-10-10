@@ -262,7 +262,7 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored, c
 
         for (const side of [-1, 1])
             for (let i = 0; i < 13; i++) {
-                const x = side * (24 + (i % 3) * .8), z = 12 - i * 6.9, h = (progress.cityLevel === 2 ? 5 : progress.cityLevel === 3 ? 14 : 8) + ((i * 7 + (side + 1) * 5) % 6) * (progress.cityLevel === 2 ? 1.5 : 3), color = progress.cityLevel === 1 ? PALETTE[(i + (side > 0 ? 3 : 0)) % PALETTE.length] : [theme.building,theme.roof,theme.accent][i%3];
+                const x = side * (24 + (i % 3) * .8), z = 12 - i * 6.9, h = (progress.cityLevel === 1 ? 6 : progress.cityLevel === 2 ? 5 : 14) + ((i * 7 + (side + 1) * 5) % 6) * (progress.cityLevel === 1 ? 1.1 : progress.cityLevel === 2 ? 1.5 : 3), color = progress.cityLevel === 1 ? PALETTE[(i + (side > 0 ? 3 : 0)) % PALETTE.length] : [theme.building,theme.roof,theme.accent][i%3];
                 if(side===-1 || overlapsBusinessPlot(x,z,6.8,6.2) || [-16,-36].some(cross=>Math.abs(z-cross)<7))continue;
                 cameraBlockers.push(box(6.2, h, 5.6, buildingStone(progress.cityLevel===1?[0xd2bd9d,0xb7c2ce,0xc4af9b][i%3]:progress.cityLevel===2?[0xc3b6a0,0xbca7a0,0xc3cbd1][i%3]:color), x, h / 2, z));
                 cameraBlockers.push(box(6.8, .6, 6.2, T(0x53674f), x, h + .3, z));
@@ -308,7 +308,7 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored, c
             }
         for (const side of [-1, 1])
             for (let i = 0; i < 8; i++) {
-                const h = 22 + (i * 11) % 18;
+                const h = progress.cityLevel===1?8+(i%5)*1.4:22+(i*11)%18;
                 box(9, h, 9, buildingStone([0xded0b8,0xadb9c4,0xcbb99b][i%3]), side * 36, h / 2, 8 - i * 12);
                 box(9.6, .8, 9.6, T(0x53674f), side * 36, h + .4, 8 - i * 12);
             }
@@ -336,6 +336,90 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored, c
         box(3.8,.16,.16,bronze,-8,3.05,-8);
         const wellRoof=box(4,.22,3,oliveTrim,-8,4.35,-8);wellRoof.rotation.z=.32;
         //
+        // Old Nazareth bazaar: human-scale limestone shop fronts, arched doors, shutters, awnings and plants.
+        const marketDoor=T(0x604434), marketMetal=T(0x53674f), marketLeaf=T(0x667b45);
+        const doorArchGeometry=new THREE.TorusGeometry(.96,.14,8,20,Math.PI);
+        const marketSignGeometry=new THREE.PlaneGeometry(4.2,.92);
+        disposables.push(doorArchGeometry,marketSignGeometry);
+        const marketSignMaterials=new Map<string,THREE.MeshBasicMaterial>();
+        const marketNameSets=localized(lang,{
+            en:['OLD MARKET','SPICES','COFFEE','HANDCRAFTS'],
+            he:['השוק העתיק','תבלינים','קפה','מלאכות יד'],
+            ar:['السوق القديم','بهارات','قهوة','حِرف'],
+        });
+        const marketSignMaterial=(label:string)=>{
+            let material=marketSignMaterials.get(label);
+            if(!material){
+                const canvas=document.createElement('canvas');canvas.width=512;canvas.height=112;
+                const ctx=canvas.getContext('2d');
+                if(ctx){
+                    ctx.fillStyle='#174d3d';ctx.fillRect(0,0,512,112);
+                    ctx.strokeStyle='#d3a34a';ctx.lineWidth=8;ctx.strokeRect(7,7,498,98);
+                    ctx.fillStyle='#fff7e7';ctx.font='bold 42px Arial';ctx.textAlign='center';ctx.textBaseline='middle';
+                    ctx.fillText(label,256,58,460);
+                }
+                const texture=new THREE.CanvasTexture(canvas);texture.colorSpace=THREE.SRGBColorSpace;disposables.push(texture);
+                material=new THREE.MeshBasicMaterial({map:texture,side:THREE.DoubleSide});marketSignMaterials.set(label,material);disposables.push(material);
+            }
+            return material;
+        };
+        for(const side of [-1,1]){
+            for(let i=0;i<14;i++){
+                const z=16-i*7.2;
+                if([-16,-36,-8].some(cross=>Math.abs(z-cross)<4.6))continue;
+                const centerX=side*12.2,faceX=side*8.25,height=6.2+(i%4)*.45;
+                const stone=buildingStone([0xe4d4b8,0xd7c5a5,0xe9ddc8,0xcdbb9d][(i+(side>0?0:1))%4]);
+                const wall=box(7.8,height,6.35,stone,centerX,height/2,z);cameraBlockers.push(wall);
+                box(8.25,.42,6.8,T(i%3===0?0x9a4e36:0x53674f),centerX,height+.2,z);
+                box(.32,height,6.55,T(0xece0cb),faceX, height/2,z);
+                for(const dz of [-2.7,2.7])box(.55,height,.34,T(0xc3ad8d),faceX-side*.12,height/2,z+dz);
+                box(.46,.24,6.8,T(0xf1e5cf),faceX-side*.22,3.35,z);
+
+                const door=box(.16,2.42,1.72,marketDoor,faceX-side*.16,1.25,z);
+                door.rotation.y=side*Math.PI/2;
+                const arch=new THREE.Mesh(doorArchGeometry,T(0xd3a34a));
+                arch.rotation.y=-side*Math.PI/2;arch.position.set(faceX-side*.2,2.45,z);scene.add(arch);
+
+                for(const dz of [-2.1,2.1]){
+                    box(.18,1.15,1.12,T(0x53674f),faceX-side*.17,4.55,z+dz);
+                    box(.2,1.22,.12,T(0x9a4e36),faceX-side*.3,4.55,z+dz-.62);
+                    box(.2,1.22,.12,T(0x9a4e36),faceX-side*.3,4.55,z+dz+.62);
+                }
+                if(i%3!==0){
+                    const awningColor=[0x9a4e36,0xd3a34a,0x53674f][i%3];
+                    const awningX=faceX-side*.72;
+                    box(1.12,.2,3.65,T(awningColor),awningX,3.25,z);
+                    for(let stripe=-2;stripe<=2;stripe++)
+                        box(1.08,.22,.45,T(stripe%2===0?0xf0dfc1:awningColor),awningX,3.2,z+stripe*.68);
+                }else{
+                    box(.95,.16,3.5,stone,faceX-side*.55,3.9,z);
+                    box(.14,.78,3.5,marketMetal,faceX-side*1.02,4.28,z);
+                    for(let baluster=-2;baluster<=2;baluster++)
+                        box(.13,.64,.12,marketMetal,faceX-side*1.02,4.22,z+baluster*.68);
+                }
+
+                const sign=new THREE.Mesh(marketSignGeometry,marketSignMaterial(marketNameSets[i%marketNameSets.length]));
+                sign.rotation.y=-side*Math.PI/2;sign.position.set(faceX-side*.27,5.55,z);scene.add(sign);
+
+                if(i%2===0){
+                    for(const dz of [-2.35,2.35]){
+                        cyl(.33,.46,T(0x9a4e36),side*9.35,.24,z+dz);
+                        ball(.42,marketLeaf,side*9.35,.82,z+dz);
+                        ball(.28,T(0x7d8e52),side*9.15,1.12,z+dz+.12);
+                    }
+                }
+            }
+        }
+        // Limestone threshold strips and a few high arches frame the market lane without blocking play.
+        for(const z of [-28,-64]){
+            const arch=new THREE.Mesh(new THREE.TorusGeometry(7.7,.2,8,36,Math.PI),T(0xd8c6a7));
+            arch.position.set(0,5.8,z);scene.add(arch);disposables.push(arch.geometry);
+            for(const side of [-1,1]){
+                box(.72,5.8,.72,T(0xd8c6a7),side*7.65,2.9,z);
+                box(1.05,.38,.98,T(0x53674f),side*7.65,5.75,z);
+            }
+        }
+
         // Street furniture
         const lamps: THREE.Mesh[] = [];
         const lightPools: {mesh:THREE.Mesh;material:THREE.MeshBasicMaterial}[]=[];
