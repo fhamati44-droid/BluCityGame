@@ -376,7 +376,6 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored, c
                 box(.46,.24,6.8,T(0xf1e5cf),faceX-side*.22,3.35,z);
 
                 const door=box(.16,2.42,1.72,marketDoor,faceX-side*.16,1.25,z);
-                door.rotation.y=side*Math.PI/2;
                 const arch=new THREE.Mesh(doorArchGeometry,T(0xd3a34a));
                 arch.rotation.y=-side*Math.PI/2;arch.position.set(faceX-side*.2,2.45,z);scene.add(arch);
 
