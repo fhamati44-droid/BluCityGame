@@ -21,7 +21,7 @@ export function campaignCityIndex(level:number){return Math.min(2,Math.max(0,lev
 export function cityMissions(level:number):CampaignMission[]{const city=campaignCityIndex(level);return CAMPAIGN_POINTS[city].map((points,i)=>({id:(i+1) as LevelId,key:`city-${city+1}-mission-${i+1}`,title:CAMPAIGN_TITLES[city].en[i],required:points.length,rewardCoins:[100,150,180,220,260,320][i],next:i===5?null:i+2,names:{en:CAMPAIGN_TITLES[city].en[i],he:CAMPAIGN_TITLES[city].he[i],ar:CAMPAIGN_TITLES[city].ar[i]},points,terminal:CAMPAIGN_TERMINALS[city][i]}));}
 // Compatibility export: mission IDs remain local to each city, saves retain balances.
 export const LEVELS=cityMissions(1);
-export const CAMPAIGN_THEMES=[{ground:0x7bd88f,building:0xf0b98b,accent:0xffb84f,roof:0x643956},{ground:0x395e6c,building:0x38a7ba,accent:0xff59ba,roof:0x182f58},{ground:0x47547d,building:0xc4cfe5,accent:0x70e5ff,roof:0x293c66}];
+export const CAMPAIGN_THEMES=[{ground:0x87996d,building:0xd9c6a5,accent:0xd3a34a,roof:0x53674f},{ground:0x9a8c70,building:0xe1cfad,accent:0x9a4e36,roof:0x435b49},{ground:0x7d9271,building:0xe7ddc9,accent:0x4c8060,roof:0x3d5d4a}];
 export function missionInstruction(city:number,id:LevelId,lang:Lang){const m=cityMissions(city)[id-1];const templates={en:['Collect {n} energy cells, then charge the destination','Collect {n} signal cores, then charge the destination','Deliver {n} cells one at a time to the marked shop','Climb the roofs, collect {n} cores, then charge the beacon','Collect {n} tools, escort the technician, then charge the destination','Hold Charge at {n} power nodes, then charge the main beacon'],he:['אסוף {n} תאי אנרגיה ואז טען את היעד','אסוף {n} ליבות אות ואז טען את היעד','הבא {n} תאים אחד בכל פעם לחנות המסומנת','עלה לגגות, אסוף {n} ליבות וטען את המשואה','אסוף {n} כלים, לווה את הטכנאי וטען את היעד','החזק טעינה ב־{n} נקודות כוח ואז טען את המשואה הראשית'],ar:['اجمع {n} خلايا طاقة وبعدين اشحن الهدف','اجمع {n} نوى إشارة وبعدين اشحن الهدف','وصّل {n} خلايا واحدة بكل مرة للدكانة المعلّمة','اصعد للسطوح واجمع {n} نوى وبعدين اشحن الهدف','اجمع {n} أدوات ورافق الفنّي وبعدين اشحن الهدف','اضغط مطولًا عند {n} نقاط طاقة وبعدين اشحن النقطة الرئيسية']};return localized(lang,templates)[id-1].replace('{n}',String(m.required));}
 export type ItemId = 'shoes' | 'battery' | 'gloves' | 'neon' | 'gold' | 'street';
 export const ITEMS = [
@@ -149,7 +149,7 @@ export function applyCommand(p: LevelProgress, c: GameCommand, now = Date.now())
 }
 // City levels retain purchased equipment and balances; each starts six fresh missions.
 export function cityScale(level: number) { return 1 + Math.min(8, Math.max(0, level - 1)) * .15; }
-export function cityName(level:number,lang:Lang){return localized(lang,{en:['BLU Neighborhood','Energy Market','City Center'],he:['שכונת BLU','שוק האנרגיה','מרכז העיר'],ar:['حارة BLU','سوق الطاقة','قلب المدينة']})[campaignCityIndex(level)];}
+export function cityName(level:number,lang:Lang){return localized(lang,{en:['Old Nazareth','Nazareth Market','Mary’s Well Quarter'],he:['נצרת העתיקה','שוק נצרת','כיכר באר מרים'],ar:['الناصرة القديمة','سوق الناصرة','ساحة عين العذراء']})[campaignCityIndex(level)];}
 export type { Lang } from './i18n';
 
 // Reserved storefront lots: outside the sidewalk (outer edge x=20.3), 18 m spacing.
