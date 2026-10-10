@@ -938,7 +938,7 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored, c
             cells.forEach((o, i) => o.visible = !challenge && activeLevel === 1 && !found[i]);
             metroCores.forEach((o, i) => o.visible = !challenge && activeLevel === 2 && !metroFound[i]);
             genRing.visible = !challenge && activeLevel === 1 && !restored;
-            const targetSpeed = (state.dash > 0 ? 21 : state.over > 0 ? 14.5 : state.onRail ? 13 : progress.inventory.includes('shoes') ? 10.35 : 9) * (state.dash > 0 ? 1 : mag);
+            const targetSpeed = (state.dash > 0 ? 21 : state.over > 0 ? 8.5 : state.onRail ? 10 : progress.inventory.includes('shoes') ? 5.1 : 4.2) * (state.dash > 0 ? 1 : mag);
             state.speed = THREE.MathUtils.damp(state.speed, targetSpeed, 9, dt);
             const dir = state.dash > 0 && mag < .1 ? new THREE.Vector3(Math.sin(state.yaw), 0, Math.cos(state.yaw)) : move;
             const before = state.pos.clone();
@@ -1272,7 +1272,7 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored, c
             // Camera: title shot in front of BLU, then chase camera
             // Simulation coordinates scale with the city; camera distances do not.
             const playerX = state.pos.x * worldScale, playerZ = state.pos.z * worldScale;
-            const desired = playing ? tmpV.set(playerX, state.pos.y + 3.8 + (state.vy > 0 ? .3 : 0), playerZ + (state.dash > 0 ? 7 : 6.4)) : tmpV.set(playerX + 1.4 + Math.sin(state.time * .3) * .5, 2.1, playerZ + 5.6);
+            const desired = playing ? tmpV.set(playerX, state.pos.y + 3.15 + (state.vy > 0 ? .3 : 0), playerZ + (state.dash > 0 ? 7 : 6)) : tmpV.set(playerX + 1.4 + Math.sin(state.time * .3) * .5, 2.1, playerZ + 5.6);
             camPos.lerp(desired, 1 - Math.exp(-(playing ? 10 : 2.5) * dt));
             const lookGoal = playing ? new THREE.Vector3(playerX, state.pos.y + 1.4, playerZ - 1) : new THREE.Vector3(playerX - .9, 1.55, playerZ - 4);
             look.lerp(lookGoal, 1 - Math.exp(-(playing ? 10 : 5) * dt));
@@ -1290,7 +1290,7 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored, c
                 if (obstruction) camera.position.copy(cameraTarget).addScaledVector(cameraDirection, Math.max(.6, obstruction.distance - .35));
             }
             camera.lookAt(look);
-            const fovBase = 70;
+            const fovBase = 66;
             camera.fov = THREE.MathUtils.damp(camera.fov, fovBase + (state.dash > 0 || state.over > 0 ? 4 : 0), 5, dt);
             camera.updateProjectionMatrix();
             sky.position.copy(camera.position);
