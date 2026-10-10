@@ -21,9 +21,9 @@ type Props = {
     replay?: boolean;
 };
 const copy = {
-    en: { zone: 'Old Nazareth', collect: 'Find 3 energy cells', generator: 'Run to the main generator', charge: 'Hold Charge to restore power', done: 'Power restored!', next: 'The Energy Tower is next', metro: 'Market lights', metroCollect: 'Find 2 market lights', metroStation: 'Run to the old market lane', metroCharge: 'Hold Charge to light the market', metroDone: 'The market is glowing!', menu: 'Menu', jump: 'Jump', dash: 'Dash', interact: 'Charge', start: 'Stick to move · swipe up to jump', unsupported: 'This device can’t show the 3D city', resume: 'Open the city map', rail: 'Rail grind!', secret: 'Secret route!', pause: 'Paused', continue: 'Keep playing', overcharge: 'Overcharge!', tap: 'Tap to play', score: 'Score', city: 'City', flip: 'Flip!', cell: 'Energy cell!', core: 'Signal core!' },
-    he: { zone: 'נצרת העתיקה', collect: 'מצא 3 תאי אנרגיה', generator: 'רוץ לגנרטור הראשי', charge: 'החזק טעינה כדי להחזיר חשמל', done: 'החשמל חזר!', next: 'מגדל האנרגיה הבא בתור', metro: 'מאירים את השוק', metroCollect: 'מצא 2 אורות בשוק', metroStation: 'רוץ לסמטת השוק העתיק', metroCharge: 'החזק טעינה כדי להאיר את השוק', metroDone: 'השוק מואר!', menu: 'תפריט', jump: 'קפיצה', dash: 'דאש', interact: 'טעינה', start: 'ג׳ויסטיק לתנועה · החלק למעלה לקפיצה', unsupported: 'המכשיר הזה לא יכול להציג את העיר בתלת־ממד', resume: 'פתח את מפת העיר', rail: 'גלישה על המסילה!', secret: 'דרך סודית!', pause: 'הפסקה', continue: 'ממשיכים לשחק', overcharge: 'טעינת יתר!', tap: 'לחץ כדי לשחק', score: 'ניקוד', city: 'עיר', flip: 'סלטה!', cell: 'תא אנרגיה!', core: 'ליבת איתות!' },
-    ar: { zone: 'الناصرة القديمة', collect: 'اجمع 3 خلايا طاقة', generator: 'اركض للمولّد الرئيسي', charge: 'اضغط مطولًا لترجع الكهربا', done: 'رجعت الكهربا!', next: 'برج الطاقة هو الجاي', metro: 'نوّر السوق', metroCollect: 'اجمع ضوّين للسوق', metroStation: 'اركض لحارة السوق القديم', metroCharge: 'اضغط مطولًا لتنور السوق', metroDone: 'السوق صار منوّر!', menu: 'القائمة', jump: 'اقفز', dash: 'اندفاع', interact: 'شحن', start: 'العصا للحركة · اسحب لفوق للقفز', unsupported: 'هالجهاز ما بقدر يعرض المدينة 3D', resume: 'افتح خريطة المدينة', rail: 'تزحلق على السكة!', secret: 'طريق سري!', pause: 'توقف', continue: 'كمّل لعب', overcharge: 'طاقة خارقة!', tap: 'اضغط لتلعب', score: 'النقاط', city: 'مدينة', flip: 'شقلبة!', cell: 'خلية طاقة!', core: 'نواة إشارة!' },
+    en: { zone: 'Old Nazareth', collect: 'Find 3 energy cells', generator: 'Run to the market beacon', charge: 'Hold Charge to restore power', done: 'Power restored!', next: 'Explore the Old Market next', metro: 'Market lights', metroCollect: 'Find 2 market lights', metroStation: 'Run to the old market lane', metroCharge: 'Hold Charge to light the market', metroDone: 'The market is glowing!', menu: 'Menu', jump: 'Jump', dash: 'Dash', interact: 'Charge', start: 'Stick to move · swipe up to jump', unsupported: 'This device can’t show the 3D city', resume: 'Open the city map', rail: 'Rail grind!', secret: 'Secret route!', pause: 'Paused', continue: 'Keep playing', overcharge: 'Overcharge!', tap: 'Tap to play', score: 'Score', city: 'City', flip: 'Flip!', cell: 'Energy cell!', core: 'Signal core!' },
+    he: { zone: 'נצרת העתיקה', collect: 'מצא 3 תאי אנרגיה', generator: 'רוץ למשואה בשוק', charge: 'החזק טעינה כדי להחזיר חשמל', done: 'החשמל חזר!', next: 'הסמטאות של השוק העתיק מחכות לך', metro: 'מאירים את השוק', metroCollect: 'מצא 2 אורות בשוק', metroStation: 'רוץ לסמטת השוק העתיק', metroCharge: 'החזק טעינה כדי להאיר את השוק', metroDone: 'השוק מואר!', menu: 'תפריט', jump: 'קפיצה', dash: 'דאש', interact: 'טעינה', start: 'ג׳ויסטיק לתנועה · החלק למעלה לקפיצה', unsupported: 'המכשיר הזה לא יכול להציג את העיר בתלת־ממד', resume: 'פתח את מפת העיר', rail: 'גלישה על המסילה!', secret: 'דרך סודית!', pause: 'הפסקה', continue: 'ממשיכים לשחק', overcharge: 'טעינת יתר!', tap: 'לחץ כדי לשחק', score: 'ניקוד', city: 'עיר', flip: 'סלטה!', cell: 'תא אנרגיה!', core: 'ליבת איתות!' },
+    ar: { zone: 'الناصرة القديمة', collect: 'اجمع 3 خلايا طاقة', generator: 'اركض لمنارة السوق', charge: 'اضغط مطولًا لترجع الكهربا', done: 'رجعت الكهربا!', next: 'حارات السوق القديم ناطرتك', metro: 'نوّر السوق', metroCollect: 'اجمع ضوّين للسوق', metroStation: 'اركض لحارة السوق القديم', metroCharge: 'اضغط مطولًا لتنور السوق', metroDone: 'السوق صار منوّر!', menu: 'القائمة', jump: 'اقفز', dash: 'اندفاع', interact: 'شحن', start: 'العصا للحركة · اسحب لفوق للقفز', unsupported: 'هالجهاز ما بقدر يعرض المدينة 3D', resume: 'افتح خريطة المدينة', rail: 'تزحلق على السكة!', secret: 'طريق سري!', pause: 'توقف', continue: 'كمّل لعب', overcharge: 'طاقة خارقة!', tap: 'اضغط لتلعب', score: 'النقاط', city: 'مدينة', flip: 'شقلبة!', cell: 'خلية طاقة!', core: 'نواة إشارة!' },
 };
 type Status = {
     completed: LevelId[];
@@ -58,7 +58,7 @@ type Status = {
     bolts: number;
     tutorial: boolean;
 };
-const PALETTE = [0xff7b8e, 0x4fd6c8, 0xffc94d, 0x8b8cff, 0xff9f5a, 0x6fd3ff, 0xc98bff];
+const PALETTE = [0xd9c6a5, 0x87996d, 0xd3a34a, 0x9a4e36, 0xe7ddc9, 0x53674f, 0xc27b50];
 export default function PlayableCity({ lang, onMenu, onReward, serverRestored, challenge = false, mission, replay = false }: Props) {
     const exploring = useRef(!replay && getProgress().completed.length===6);
     const host = useRef<HTMLDivElement>(null);
@@ -106,7 +106,7 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored, c
             return;
         }
         const scene = new THREE.Scene();
-        const FOG = 0xb9a69a;
+        const FOG = 0xd8cbb6;
         scene.fog = new THREE.Fog(FOG, 40, 150);
         const camera = new THREE.PerspectiveCamera(62, 1, .1, 400);
         renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 1.75));
@@ -153,7 +153,7 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored, c
         const skyGeo = new THREE.SphereGeometry(300, 32, 16);
         const cols: number[] = [];
         const pos = skyGeo.attributes.position;
-        const top = new THREE.Color(0x527da8), mid = new THREE.Color(progress.cityLevel===2?0xb68eaa:0x92aec5), low = new THREE.Color(0xffc894), tmp = new THREE.Color();
+        const top = new THREE.Color(0x55765d), mid = new THREE.Color(progress.cityLevel===2?0xb69a73:0x9caf91), low = new THREE.Color(0xf1c98c), tmp = new THREE.Color();
         for (let i = 0; i < pos.count; i++) {
             const y = pos.getY(i) / 300;
             if (y > .25)
@@ -175,8 +175,8 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored, c
         const cloudMat = new THREE.MeshBasicMaterial({ color: 0xffead2, fog: false, transparent: true, opacity: .42 });
         disposables.push(cloudMat);
         const clouds = [0, 1, 2, 3, 4].map(i => { const g = new THREE.Group(); [[0, 0, 5], [5, -1, 4], [-5, -1.3, 3.6], [2, 2, 3.8]].forEach(([x, y, r]) => { const m = new THREE.Mesh(sphGeo, cloudMat); m.scale.set(r, r * .6, r * .8); m.position.set(x, y, 0); g.add(m); }); g.position.set(-80 + i * 42, 50 + (i % 2) * 14, -170 - (i % 3) * 20); scene.add(g); return g; });
-        scene.add(new THREE.HemisphereLight(0xc9e1f4, 0x9c8065, 1.55));
-        const sunLight = new THREE.DirectionalLight(0xffd5a0, 2.1);
+        scene.add(new THREE.HemisphereLight(0xfff0d4, 0x8b7657, 1.65));
+        const sunLight = new THREE.DirectionalLight(0xffe0b0, 2.3);
         sunLight.position.set(-18, 30, 14);
         scene.add(sunLight);
         // Small deterministic textures: authored locally, uploaded once, no per-frame canvas work.
@@ -265,7 +265,7 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored, c
                 const x = side * (24 + (i % 3) * .8), z = 12 - i * 6.9, h = (progress.cityLevel === 2 ? 5 : progress.cityLevel === 3 ? 14 : 8) + ((i * 7 + (side + 1) * 5) % 6) * (progress.cityLevel === 2 ? 1.5 : 3), color = progress.cityLevel === 1 ? PALETTE[(i + (side > 0 ? 3 : 0)) % PALETTE.length] : [theme.building,theme.roof,theme.accent][i%3];
                 if(side===-1 || overlapsBusinessPlot(x,z,6.8,6.2) || [-16,-36].some(cross=>Math.abs(z-cross)<7))continue;
                 cameraBlockers.push(box(6.2, h, 5.6, buildingStone(progress.cityLevel===1?[0xd2bd9d,0xb7c2ce,0xc4af9b][i%3]:progress.cityLevel===2?[0xc3b6a0,0xbca7a0,0xc3cbd1][i%3]:color), x, h / 2, z));
-                cameraBlockers.push(box(6.8, .6, 6.2, T(0x2b2f5e), x, h + .3, z));
+                cameraBlockers.push(box(6.8, .6, 6.2, T(0x53674f), x, h + .3, z));
                 box(5.4, .3, 4.8, T(0xfff3e0), x, h + .7, z);
                 if (i % 2) {
                     box(1.4, 1, 1.4, T(0xdfe6ff), x + 1.5, h + 1.3, z - 1);
@@ -300,9 +300,9 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored, c
                 for (let y = 2.2; y < h - 1; y += 2.6)
                     for (let dz = -1.7; dz <= 1.7; dz += 1.7)
                         addWindow(face, y, z + dz, -side * Math.PI / 2);
-                box(.2, 1.2, 5.8, T(0x2b2f5e), face - side * .05, 1.1, z);
+                box(.2, 1.2, 5.8, T(0x53674f), face - side * .05, 1.1, z);
                 if (i % 3 === 1) {
-                    const s = box(.25, 1.6, 3.4, T(0x5b4d8a), face - side * .2, Math.min(h - 2, 6), z);
+                    const s = box(.25, 1.6, 3.4, T(0x9a4e36), face - side * .2, Math.min(h - 2, 6), z);
                     signs.push(s);
                 }
             }
@@ -310,13 +310,32 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored, c
             for (let i = 0; i < 8; i++) {
                 const h = 22 + (i * 11) % 18;
                 box(9, h, 9, buildingStone([0xded0b8,0xadb9c4,0xcbb99b][i%3]), side * 36, h / 2, 8 - i * 12);
-                box(9.6, .8, 9.6, T(0x2b2f5e), side * 36, h + .4, 8 - i * 12);
+                box(9.6, .8, 9.6, T(0x53674f), side * 36, h + .4, 8 - i * 12);
             }
         windowsMesh.count = wi;
         windowsMesh.instanceMatrix.needsUpdate = true;
         if (windowsMesh.instanceColor)
             windowsMesh.instanceColor.needsUpdate = true;
         scene.add(windowsMesh);
+        // Original, stylized Nazareth landmarks: a hillside church dome and Mary's Well fountain.
+        const basilicaStone=T(0xe7ddc9), oliveTrim=T(0x53674f), bronze=T(0xd3a34a);
+        box(10,8,8,basilicaStone,33,4,-66);
+        box(12,.7,10,oliveTrim,33,8.2,-66);
+        cyl(3.1,.65,bronze,33,9,-66);
+        const churchDome=ball(3.25,basilicaStone,33,10.5,-66);churchDome.scale.set(1,1.05,1);
+        cyl(.12,3,bronze,33,14,-66);
+        box(2.7,4.8,2.8,basilicaStone,33,15,-66);
+        const cupola=ball(1.55,bronze,33,17.6,-66);cupola.scale.set(1,.7,1);
+        box(.22,2.4,.22,oliveTrim,33,20,-66);
+        box(2.6,.18,.18,oliveTrim,33,20.6,-66);
+        box(.18,2.6,.18,oliveTrim,33,20.6,-66);
+        cyl(2.4,.7,basilicaStone,-8,.35,-8);
+        cyl(1.75,.55,oliveTrim,-8,.95,-8);
+        cyl(1.25,.08,T(0x8ba89b),-8,1.27,-8);
+        cyl(.14,2.1,bronze,-8,2.1,-8);
+        box(3.8,.16,.16,bronze,-8,3.05,-8);
+        const wellRoof=box(4,.22,3,oliveTrim,-8,4.35,-8);wellRoof.rotation.z=.32;
+        //
         // Street furniture
         const lamps: THREE.Mesh[] = [];
         const lightPools: {mesh:THREE.Mesh;material:THREE.MeshBasicMaterial}[]=[];
@@ -324,15 +343,15 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored, c
 
         for (const side of [-1, 1])
             for (let z = 10; z > -70; z -= 13) {
-                cyl(.1, 4.2, T(0x2b2f5e), side * 16.6, 2.1, z);
-                box(1.1, .12, .25, T(0x2b2f5e), side * 16.1, 4.2, z);
+                cyl(.1, 4.2, T(0x53674f), side * 16.6, 2.1, z);
+                box(1.1, .12, .25, T(0x53674f), side * 16.1, 4.2, z);
                 const lanternX=side*15.6;
-                cyl(.42,.3,T(0x26313d),side*16.6,.15,z);
-                cyl(.25,.6,T(0x26313d),side*16.6,.55,z);
+                cyl(.42,.3,T(0x53674f),side*16.6,.15,z);
+                cyl(.25,.6,T(0x53674f),side*16.6,.55,z);
                 const glass=box(.5,.65,.5,B(0x66573a),lanternX,4.05,z);lamps.push(glass);
-                box(.75,.18,.75,T(0x26313d),lanternX,4.48,z);
-                box(.65,.16,.65,T(0x26313d),lanternX,3.66,z);
-                for(const dx of [-.24,.24])for(const dz of [-.24,.24])box(.055,.8,.055,T(0x26313d),lanternX+dx,4.05,z+dz);
+                box(.75,.18,.75,T(0x53674f),lanternX,4.48,z);
+                box(.65,.16,.65,T(0x53674f),lanternX,3.66,z);
+                for(const dx of [-.24,.24])for(const dz of [-.24,.24])box(.055,.8,.055,T(0x53674f),lanternX+dx,4.05,z+dz);
                 const poolMaterial=new THREE.MeshBasicMaterial({map:glowTexture,transparent:true,opacity:.12,depthWrite:false,blending:THREE.AdditiveBlending});disposables.push(poolMaterial);
                 const pool=new THREE.Mesh(poolGeometry,poolMaterial);pool.rotation.x=-Math.PI/2;pool.position.set(side*13,.015,z);scene.add(pool);lightPools.push({mesh:pool,material:poolMaterial});
             }
@@ -385,24 +404,24 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored, c
         box(2.7, .8, 6.6, T(0xfff3e0), 0, .35, 0, train);
         for (const z of [-2.2, 0, 2.2])
             box(2.75, .6, 1.3, T(0x6fd3ff), 0, .4, z, train);
-        box(2.7, .25, 7.1, T(0x2b2f5e), 0, -1.1, 0, train);
+        box(2.7, .25, 7.1, T(0x53674f), 0, -1.1, 0, train);
         train.position.set(-9.2, 6.7, -65);
         scene.add(train);
-        const drones = [0, 1, 2].map(i => { const g = new THREE.Group(); box(.9, .3, .8, T(0xfff3e0), 0, 0, 0, g); box(1.9, .06, .18, T(0x2b2f5e), 0, .1, 0, g); ball(.18, B(0x6ff7ff), 0, -.2, .3, g); g.position.set(i % 2 ? 8 : -8, 9 + i * 2, -11 - i * 15); scene.add(g); return g; });
+        const drones = [0, 1, 2].map(i => { const g = new THREE.Group(); box(.9, .3, .8, T(0xfff3e0), 0, 0, 0, g); box(1.9, .06, .18, T(0x53674f), 0, .1, 0, g); ball(.18, B(0xd3a34a), 0, -.2, .3, g); g.position.set(i % 2 ? 8 : -8, 9 + i * 2, -11 - i * 15); scene.add(g); return g; });
         const traffic = [0, 1, 2].map(i => { const g = new THREE.Group(); const c = [0xffc94d, 0x4fd6c8, 0xff7b8e][i]; box(1.7, .7, 3.2, T(c), 0, .55, 0, g); box(1.4, .55, 1.6, T(0xdff6ff), 0, 1.15, -.2, g); box(1.3, .2, .12, B(0xfff3b0), 0, .6, -1.62, g); for (const [x, z] of [[-.8, 1], [.8, 1], [-.8, -1], [.8, -1]]) {
-            const w = cyl(.35, .3, T(0x2b2f5e), x, .35, z, g);
+            const w = cyl(.35, .3, T(0x53674f), x, .35, z, g);
             w.rotation.z = Math.PI / 2;
         } g.position.set(i === 1 ? -4 : 4, 0, 9 - i * 20); scene.add(g); return g; });
         box(11, 6.5, 8, T(0xc98bff), 39, 3.2, -28);
         box(11.6, .5, 8.6, T(0xff4fa3), 39, 6.7, -28);
         const tower = new THREE.Group();
         cyl(4, 40, T(0x5b6bd6), 0, 20, -110, tower);
-        cyl(3, 7, T(0x2b2f5e), 0, 43, -110, tower);
+        cyl(3, 7, T(0x53674f), 0, 43, -110, tower);
         const towerTop = cyl(2.2, 6, T(0x6b6590), 0, 49, -110, tower);
         cyl(.4, 14, T(0xfff3e0), 0, 58, -110, tower);
         scene.add(tower);
         const gen = new THREE.Group();
-        cyl(3, .8, T(0x2b2f5e), 0, .45, -35, gen);
+        cyl(3, .8, T(0x53674f), 0, .45, -35, gen);
         cyl(1.6, 4, T(0xfff3e0), 0, 2.8, -35, gen);
         for (let k = 0; k < 4; k++) {
             const b = box(.3, 3.6, .3, T(0x5b6bd6), Math.cos(k * 1.57) * 1.65, 2.8, -35 + Math.sin(k * 1.57) * 1.65, gen);
@@ -410,7 +429,7 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored, c
         }
         const genCore = cyl(1.2, .5, T(0x6b6590), 0, 5, -35, gen);
         scene.add(gen);
-        const genRing = new THREE.Mesh(new THREE.TorusGeometry(4, .12, 8, 48), B(0x6ff7ff));
+        const genRing = new THREE.Mesh(new THREE.TorusGeometry(4, .12, 8, 48), B(0xd3a34a));
         genRing.rotation.x = Math.PI / 2;
         genRing.position.set(0, .2, -35);
         scene.add(genRing);
@@ -483,7 +502,7 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored, c
         metroStation.position.copy(terminals[2]);
         const terminalRings: Record<number, THREE.Mesh> = {};
         for (const id of [3, 4, 5, 6]) {
-            const ring = new THREE.Mesh(new THREE.TorusGeometry(2, .1, 8, 32), B(0x6ff7ff));
+            const ring = new THREE.Mesh(new THREE.TorusGeometry(2, .1, 8, 32), B(0xd3a34a));
             ring.rotation.x = Math.PI / 2;
             ring.position.copy(terminals[id]).add(new THREE.Vector3(0, .2, 0));
             scene.add(ring);
@@ -547,7 +566,7 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored, c
         blu.root.traverse(o=>{if(o instanceof THREE.Mesh){o.castShadow=true;o.receiveShadow=true;}});
         scene.add(blu.root);
         disposables.push(blu);
-        const trail = [0, 1, 2, 3, 4].map(() => { const o = new THREE.Mesh(sphGeo, B(0x6ff7ff)); o.scale.setScalar(.12); scene.add(o); return o; });
+        const trail = [0, 1, 2, 3, 4].map(() => { const o = new THREE.Mesh(sphGeo, B(0xd3a34a)); o.scale.setScalar(.12); scene.add(o); return o; });
         // Checkpoint
         for (const r of [{ x: 8, a: -10, b: -15, ya: 0, yb: 3 }, { x: 8, a: -20.5, b: -22.5, ya: 3, yb: 4 }, { x: 8, a: -29, b: -31.5, ya: 4, yb: 4 }, { x: 8, a: -38, b: -39, ya: 4, yb: 3 }]) {
             const ramp = box(2.5, .18, Math.hypot(r.a - r.b, r.yb - r.ya), T(0xffcf45), r.x, (r.ya + r.yb) / 2, (r.a + r.b) / 2);
@@ -675,7 +694,7 @@ export default function PlayableCity({ lang, onMenu, onReward, serverRestored, c
         const award = (id: LevelId) => { save(); progress = gameDispatch({ type: "finish", id }); };
         cells.forEach((c, i) => { c.visible = !found[i]; });
         metroCores.forEach((c, i) => { c.visible = activeLevel === 2 && !metroFound[i]; });
-        const litMats = { lamp: B(0xfff3b0), sign: T(0xff4fa3, 0xff4fa3, 1), core: B(0x6ff7ff), station: T(0x6ff7ff, 0x6ff7ff, .9) };
+        const litMats = { lamp: B(0xfff3b0), sign: T(0xff4fa3, 0xff4fa3, 1), core: B(0xd3a34a), station: T(0x6ff7ff, 0x6ff7ff, .9) };
         let litWindows = 0;
         const lightWindow = (i: number) => { windowsMesh.setColorAt(i, litColor); };
         const applyLights = (instant: boolean) => { genCore.material = litMats.core; towerTop.material = litMats.core; if (instant) {
