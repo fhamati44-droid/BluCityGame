@@ -169,3 +169,36 @@
 .ton-wallet-panel ul { padding-inline-start: 20px; }
 
 .campaign-map{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:20px 0}.campaign-city{display:flex;align-items:center;flex-direction:column;gap:6px;text-align:center;border:1px solid #89aace44;border-radius:15px;background:#102038;padding:12px 5px;font-size:11px;color:#b4c7df}.campaign-city strong{min-height:30px}.campaign-city.current{border-color:#4cdbff;color:#eaffff;background:#143348}.campaign-city span{font-variant-numeric:tabular-nums}
+
+
+/* TAMAM × Nazareth edition: warm stone, olive greens and the old market mood. */
+.premium-shell.game-shell{color:#173f35;background:radial-gradient(ellipse at 50% 0%,#e4eddc 0%,transparent 46%),linear-gradient(180deg,#f7f5ed 0%,#eff1e7 55%,#e8eee4 100%);--muted:#64766a;color-scheme:light}
+.premium-shell .logo-lockup strong,.premium-shell h1,.premium-shell h2{color:#173f35}
+.premium-shell .logo-lockup small,.premium-shell .hub-status,.premium-shell .hub-lead,.premium-shell .hub-card p{color:#64766a}
+.premium-shell .logo-mark{background:#174d3d;color:#f7f5ed;border-radius:50%;box-shadow:0 4px 16px #174d3d24}
+.premium-shell .level-chip,.premium-shell .language-select{color:#174d3d;background:#fffdf7;border:1px solid #d8e1d4}
+.premium-shell .background-stars{display:none}
+.premium-shell .hub-wallet>div,.premium-shell .hub-card,.premium-shell .campaign-city,.premium-shell .hub-daily-teaser{background:#fffdf7;border:1px solid #dfe7da;box-shadow:0 8px 24px #2443310b;color:#173f35}
+.premium-shell .hub-wallet small,.premium-shell .hub-card-top,.premium-shell .hub-eyebrow{color:#708173}
+.premium-shell .hub-wallet .blu>svg,.premium-shell .hub-wallet .coin>svg{color:#397758}
+.premium-shell .hub-hero{background:radial-gradient(ellipse at 78% 42%,#4e886d 0%,transparent 58%),linear-gradient(140deg,#164b3b,#0e382e);border:1px solid #6e9b7e;box-shadow:0 18px 44px #173f3520}
+.premium-shell .hub-hero.powered{background:radial-gradient(ellipse at 78% 42%,#78a879 0%,transparent 58%),linear-gradient(140deg,#255e46,#174333)}
+.premium-shell .hub-hero h1,.premium-shell .hub-hero .hub-greeting,.premium-shell .hub-hero-intro,.premium-shell .hub-hero-bottom{color:#fffdf4}
+.premium-shell .hub-zone{color:#214b3c;background:#f4f3e8;border-color:#d2dfcf;letter-spacing:.04em}
+.premium-shell .hub-zone i{background:#629260}
+.premium-shell .hub-city-silhouette i{background:#f2edda!important;opacity:.22}
+.premium-shell .hub-button{background:#174d3d;color:#fffdf4;box-shadow:0 6px 15px #0b32261c}
+.premium-shell .hub-button.secondary{color:#174d3d;background:#edf3e9;border:1px solid #cbdac9}
+.premium-shell .hub-heading,.premium-shell .hub-heading button{color:#174d3d}
+.premium-shell .campaign-city.current{background:#e5efe2;border-color:#86a98c}
+.premium-shell .hub-card-emblem,.premium-shell .hub-level{background:#e5efe2;color:#286249}
+.premium-shell .hub-mini-world{background:#eff4eb}
+.premium-shell .hub-ring{background:conic-gradient(#357452 var(--progress),#dbe5d8 0)}
+.premium-shell .hub-daily-teaser{color:#174d3d}
+.premium-shell .hub-status>i{background:#7c9b72}
+.premium-shell .hub-status>button{color:#47705a}
+.premium-shell .title-screen{background:linear-gradient(180deg,#f2eee2,#e6ede3);color:#173f35}
+.premium-shell .title-logo .logo-blu,.premium-shell .title-logo .logo-city{color:#174d3d}
+.premium-shell .btn3d.yellow{background:#d5a64a;color:#213a2d}
+.premium-shell .btn3d.blue{background:#397758;color:#fffdf4}
+@media(prefers-reduced-motion:reduce){.premium-shell *{animation-duration:.01ms!important;scroll-behavior:auto!important}}
